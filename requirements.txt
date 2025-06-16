@@ -1,0 +1,9 @@
+typer[all]
+requests
+beautifulsoup4
+lxml
+paramiko
+rich
+fuzzywuzzy[speedup]
+click-completion
+pexpect

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, List, Optional, Tuple
 
 import typer
+
 try:
     from fuzzywuzzy import fuzz
 except ImportError:
@@ -19,14 +20,16 @@ from jenkins_credential_extractor.credentials import CredentialsParser
 from jenkins_credential_extractor.jenkins import JenkinsAutomation
 from jenkins_credential_extractor.projects import (
     PROJECT_MAPPINGS,
-    ProjectInfo,
     find_project_by_alias,
     get_projects_with_jenkins,
 )
 from jenkins_credential_extractor.tailscale import (
     check_tailscale_status,
+    display_enhanced_jenkins_servers,
     display_jenkins_servers,
     get_jenkins_server_for_project,
+    parse_lf_inventory,
+    rebuild_server_list,
 )
 
 app = typer.Typer(
@@ -41,15 +44,18 @@ console = Console()
 def extract(
     project: Optional[str] = typer.Argument(None, help="Project name (optional)"),
     output: str = typer.Option("credentials.txt", help="Output file for credentials"),
-    credentials_file: str = typer.Option("credentials.xml", help="Local credentials file path"),
-    description_pattern: Optional[str] = typer.Option(None, "--pattern", help="Description pattern to filter credentials"),
+    credentials_file: str = typer.Option(
+        "credentials.xml", help="Local credentials file path"
+    ),
+    description_pattern: Optional[str] = typer.Option(
+        None, "--pattern", help="Description pattern to filter credentials"
+    ),
 ) -> None:
     """Extract credentials from a Jenkins server."""
     console.print("[bold blue]Jenkins Credential Extractor[/bold blue]\n")
 
     # Check Tailscale status
     if not check_tailscale_status():
-        console.print("[red]❌ Tailscale check failed. Please ensure Tailscale is running and logged in.[/red]")
         raise typer.Exit(1)
 
     # Get project selection
@@ -63,7 +69,9 @@ def extract(
     # Get Jenkins server for project
     jenkins_info = get_jenkins_server_for_project(selected_project)
     if not jenkins_info:
-        console.print(f"[red]❌ No Jenkins server found for project '{selected_project}'[/red]")
+        console.print(
+            f"[red]❌ No Jenkins server found for project '{selected_project}'[/red]"
+        )
         raise typer.Exit(1)
 
     jenkins_ip, jenkins_hostname = jenkins_info
@@ -71,7 +79,9 @@ def extract(
     jenkins_url = project_info["jenkins_url"]
 
     if not jenkins_url:
-        console.print(f"[red]❌ No Jenkins URL configured for project '{selected_project}'[/red]")
+        console.print(
+            f"[red]❌ No Jenkins URL configured for project '{selected_project}'[/red]"
+        )
         raise typer.Exit(1)
 
     console.print(f"[cyan]Jenkins server: {jenkins_hostname} ({jenkins_ip})[/cyan]")
@@ -82,7 +92,9 @@ def extract(
 
     # Test connectivity
     if not jenkins.test_jenkins_connectivity():
-        console.print("[yellow]⚠️  Jenkins server may not be accessible via HTTP[/yellow]")
+        console.print(
+            "[yellow]⚠️  Jenkins server may not be accessible via HTTP[/yellow]"
+        )
         if not Confirm.ask("Continue anyway?"):
             raise typer.Exit(1)
 
@@ -99,11 +111,15 @@ def extract(
 
     # Extract repository credentials with user choice or specified pattern
     if description_pattern:
-        console.print(f"[cyan]Using description pattern: '{description_pattern}'[/cyan]")
-        repo_credentials = parser.extract_credentials_by_description(description_pattern)
+        console.print(
+            f"[cyan]Using description pattern: '{description_pattern}'[/cyan]"
+        )
+        repo_credentials = parser.extract_credentials_by_description(
+            description_pattern
+        )
     else:
         repo_credentials = parser.extract_credentials_by_pattern_choice()
-    
+
     if not repo_credentials:
         console.print("[yellow]⚠️  No repository credentials found[/yellow]")
         raise typer.Exit(1)
@@ -117,7 +133,9 @@ def extract(
 
     # Save results
     if jenkins.save_credentials_file(decrypted_credentials, output):
-        console.print(f"\n[bold green]✅ Successfully extracted {len(decrypted_credentials)} credentials to {output}[/bold green]")
+        console.print(
+            f"\n[bold green]✅ Successfully extracted {len(decrypted_credentials)} credentials to {output}[/bold green]"
+        )
     else:
         console.print("[red]❌ Failed to save credentials file[/red]")
         raise typer.Exit(1)
@@ -144,7 +162,7 @@ def list_projects() -> None:
             project["name"],
             project["full_name"],
             project["jenkins_url"] or "N/A",
-            aliases
+            aliases,
         )
 
     console.print(table)
@@ -153,23 +171,41 @@ def list_projects() -> None:
 @app.command()
 def list_servers() -> None:
     """List Jenkins servers available in Tailscale network."""
-    console.print("[bold blue]Checking Tailscale network for Jenkins servers...[/bold blue]\n")
+    console.print(
+        "[bold blue]Checking Tailscale network for Jenkins servers...[/bold blue]\n"
+    )
 
     if not check_tailscale_status():
-        console.print("[red]❌ Tailscale check failed[/red]")
         raise typer.Exit(1)
 
     display_jenkins_servers()
 
 
+@app.command("list-servers-enhanced")
+def list_servers_enhanced() -> None:
+    """List Jenkins servers with enhanced filtering and project grouping."""
+    console.print("[bold blue]Enhanced Jenkins server discovery...[/bold blue]\n")
+
+    if not check_tailscale_status():
+        raise typer.Exit(1)
+
+    display_enhanced_jenkins_servers()
+
+
 @app.command()
 def parse_local(
-    credentials_file: str = typer.Argument(..., help="Path to local credentials.xml file"),
+    credentials_file: str = typer.Argument(
+        ..., help="Path to local credentials.xml file"
+    ),
     output: str = typer.Option("credentials.txt", help="Output file for credentials"),
-    description_pattern: Optional[str] = typer.Option(None, "--pattern", help="Description pattern to filter credentials"),
+    description_pattern: Optional[str] = typer.Option(
+        None, "--pattern", help="Description pattern to filter credentials"
+    ),
 ) -> None:
     """Parse a local credentials.xml file without downloading from Jenkins."""
-    console.print(f"[bold blue]Parsing local credentials file: {credentials_file}[/bold blue]\n")
+    console.print(
+        f"[bold blue]Parsing local credentials file: {credentials_file}[/bold blue]\n"
+    )
 
     if not Path(credentials_file).exists():
         console.print(f"[red]❌ File not found: {credentials_file}[/red]")
@@ -183,21 +219,104 @@ def parse_local(
 
     # Extract and display repository credentials
     if description_pattern:
-        console.print(f"[cyan]Using description pattern: '{description_pattern}'[/cyan]")
-        repo_credentials = parser.extract_credentials_by_description(description_pattern)
+        console.print(
+            f"[cyan]Using description pattern: '{description_pattern}'[/cyan]"
+        )
+        repo_credentials = parser.extract_credentials_by_description(
+            description_pattern
+        )
     else:
         repo_credentials = parser.extract_credentials_by_pattern_choice()
-    
+
     if not repo_credentials:
         console.print("[yellow]⚠️  No repository credentials found[/yellow]")
         return
 
-    console.print(f"\n[bold]Found {len(repo_credentials)} repository credentials:[/bold]")
+    console.print(
+        f"\n[bold]Found {len(repo_credentials)} repository credentials:[/bold]"
+    )
     for username, encrypted_password in repo_credentials:
-        console.print(f"  [cyan]{username}[/cyan]: [dim]{encrypted_password[:20]}...[/dim]")
+        console.print(
+            f"  [cyan]{username}[/cyan]: [dim]{encrypted_password[:20]}...[/dim]"
+        )
 
-    console.print("\n[yellow]To decrypt these passwords, you'll need to use the Jenkins script console.[/yellow]")
+    console.print(
+        "\n[yellow]To decrypt these passwords, you'll need to use the Jenkins script console.[/yellow]"
+    )
     console.print("[dim]Use the 'extract' command for full automation.[/dim]")
+
+
+@app.command("rebuild-projects")
+def rebuild_projects() -> None:
+    """Rebuild and refresh the project list from all sources."""
+    console.print("[bold blue]Rebuilding project list...[/bold blue]\n")
+
+    # Get projects with Jenkins from our mappings
+    projects = get_projects_with_jenkins()
+    console.print(
+        f"[green]✓ Found {len(projects)} projects with Jenkins servers in mappings[/green]"
+    )
+
+    # Parse LF inventory for additional projects
+    try:
+        lf_projects = parse_lf_inventory()
+        console.print(
+            f"[green]✓ Found {len(lf_projects)} project groups in LF inventory[/green]"
+        )
+
+        # Show comparison
+        mapped_keys = {key for key, _ in projects}
+        inventory_keys = set(lf_projects.keys())
+
+        missing_from_mapping = inventory_keys - mapped_keys
+        missing_from_inventory = mapped_keys - inventory_keys
+
+        if missing_from_mapping:
+            console.print(
+                "\n[yellow]Projects in inventory but not in mappings:[/yellow]"
+            )
+            for project in sorted(missing_from_mapping):
+                console.print(f"  - {project}")
+
+        if missing_from_inventory:
+            console.print(
+                "\n[yellow]Projects in mappings but not in inventory:[/yellow]"
+            )
+            for project in sorted(missing_from_inventory):
+                console.print(f"  - {project}")
+
+        console.print("\n[bold green]✓ Project list analysis complete[/bold green]")
+
+    except Exception as e:
+        console.print(f"[yellow]Warning: Could not parse LF inventory: {e}[/yellow]")
+
+
+@app.command("rebuild-servers")
+def rebuild_servers() -> None:
+    """Rebuild and refresh the Jenkins server list from all sources."""
+    console.print("[bold blue]Rebuilding Jenkins server list...[/bold blue]\n")
+
+    if not check_tailscale_status():
+        raise typer.Exit(1)
+
+    # Rebuild comprehensive server list
+    all_servers = rebuild_server_list()
+
+    # Display results
+    console.print("\n[bold]Comprehensive Jenkins server list:[/bold]")
+
+    if not all_servers:
+        console.print("[yellow]No Jenkins servers found[/yellow]")
+        return
+
+    for project, servers in sorted(all_servers.items()):
+        console.print(f"\n[bold cyan]{project.upper()}:[/bold cyan]")
+        for server in servers:
+            console.print(f"  {server}")
+
+    console.print(
+        f"\n[bold green]✓ Found servers for {len(all_servers)} projects[/bold green]"
+    )
 
 
 def select_project() -> Optional[str]:
@@ -210,7 +329,9 @@ def select_project() -> Optional[str]:
 
     console.print("[bold]Available projects:[/bold]")
     for i, (key, project) in enumerate(projects, 1):
-        console.print(f"  {i}. [cyan]{project['name']}[/cyan] ({key}) - {project['full_name']}")
+        console.print(
+            f"  {i}. [cyan]{project['name']}[/cyan] ({key}) - {project['full_name']}"
+        )
 
     while True:
         choice = Prompt.ask("\nEnter project number, name, or alias")
@@ -234,7 +355,9 @@ def select_project() -> Optional[str]:
         console.print("[red]Invalid selection. Please try again.[/red]")
 
 
-def _try_numeric_selection(choice: str, projects: List[Tuple[str, Any]]) -> Optional[str]:
+def _try_numeric_selection(
+    choice: str, projects: List[Tuple[str, Any]]
+) -> Optional[str]:
     """Try to parse choice as a number and return corresponding project."""
     try:
         index = int(choice) - 1
@@ -263,7 +386,9 @@ def _try_fuzzy_matching(choice: str, projects: List[Tuple[str, Any]]) -> Optiona
 
     if best_match and best_score > 70:
         project_info = PROJECT_MAPPINGS[best_match]
-        if Confirm.ask(f"Did you mean '[cyan]{project_info['name']}[/cyan]' ({best_match})?"):
+        if Confirm.ask(
+            f"Did you mean '[cyan]{project_info['name']}[/cyan]' ({best_match})?"
+        ):
             return best_match
 
     return None

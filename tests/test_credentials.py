@@ -69,7 +69,7 @@ def test_credentials_parser_minimal_xml() -> None:
   </domainCredentialsMap>
 </com.cloudbees.plugins.credentials.SystemCredentialsProvider>"""
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.xml', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".xml", delete=False) as f:
         f.write(xml_content)
         f.flush()
 
@@ -81,7 +81,10 @@ def test_credentials_parser_minimal_xml() -> None:
 
         username, encrypted_password = credentials[0]
         assert username == "test-user"
-        assert encrypted_password == "AQAAABAAAAAwy5gL4M5KpiHQ9KdYUUv5QxXNpDT9vMA3gWHIQAaeWKlH"
+        assert (
+            encrypted_password
+            == "AQAAABAAAAAwy5gL4M5KpiHQ9KdYUUv5QxXNpDT9vMA3gWHIQAaeWKlH"
+        )
 
     # Clean up
     Path(f.name).unlink()

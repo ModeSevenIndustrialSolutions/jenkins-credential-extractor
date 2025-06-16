@@ -8,17 +8,23 @@ from typing import Dict, List, Optional, Tuple
 
 from rich.console import Console
 from rich.prompt import Prompt
-from rich.prompt import Prompt
 
 console = Console()
 
 # Constants
-USERNAME_PASSWORD_XPATH = ".//com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl"
+USERNAME_PASSWORD_XPATH = (
+    ".//com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl"
+)
 SYSTEM_CREDENTIAL_IDS = {
-    'jenkins-ssh', 'jenkins', 'jenkins-log-archives', 'docker',
-    'os-cloud', 'lftoolsini-nexus', 'nonrtric-onap-nexus'
+    "jenkins-ssh",
+    "jenkins",
+    "jenkins-log-archives",
+    "docker",
+    "os-cloud",
+    "lftoolsini-nexus",
+    "nonrtric-onap-nexus",
 }
-SYSTEM_USERNAMES = {'jenkins', 'logs', 'docker'}
+SYSTEM_USERNAMES = {"jenkins", "logs", "docker"}
 
 
 class CredentialsParser:
@@ -34,13 +40,17 @@ class CredentialsParser:
         try:
             tree = ET.parse(self.credentials_file)
             self.root = tree.getroot()
-            console.print(f"[green]✓ Successfully parsed {self.credentials_file}[/green]")
+            console.print(
+                f"[green]✓ Successfully parsed {self.credentials_file}[/green]"
+            )
             return True
         except ET.ParseError as e:
             console.print(f"[red]Error parsing XML: {e}[/red]")
             return False
         except FileNotFoundError:
-            console.print(f"[red]Credentials file not found: {self.credentials_file}[/red]")
+            console.print(
+                f"[red]Credentials file not found: {self.credentials_file}[/red]"
+            )
             return False
         except Exception as e:
             console.print(f"[red]Unexpected error parsing credentials: {e}[/red]")
@@ -78,7 +88,7 @@ class CredentialsParser:
         if not self._is_repository_credential(cred_id, username):
             return None
 
-        if password.startswith('{') and password.endswith('}'):
+        if password.startswith("{") and password.endswith("}"):
             encrypted_password = password[1:-1]
             return (username, encrypted_password)
 
@@ -111,7 +121,7 @@ class CredentialsParser:
         username = username_elem.text or ""
         password = password_elem.text or ""
 
-        if password.startswith('{') and password.endswith('}'):
+        if password.startswith("{") and password.endswith("}"):
             encrypted_password = password[1:-1]
             return (username, encrypted_password)
 
@@ -127,16 +137,18 @@ class CredentialsParser:
         for cred in self.root.findall(USERNAME_PASSWORD_XPATH):
             cred_info: Dict[str, str] = {}
 
-            for field in ['id', 'description', 'username']:
+            for field in ["id", "description", "username"]:
                 elem = cred.find(field)
                 cred_info[field] = elem.text if elem is not None and elem.text else ""
 
-            cred_info['type'] = 'UsernamePassword'
+            cred_info["type"] = "UsernamePassword"
             all_creds.append(cred_info)
 
         return all_creds
 
-    def extract_credentials_by_description(self, description_pattern: str) -> List[Tuple[str, str]]:
+    def extract_credentials_by_description(
+        self, description_pattern: str
+    ) -> List[Tuple[str, str]]:
         """Extract credentials that match a description pattern."""
         if self.root is None:
             console.print("[red]No parsed XML available. Call parse() first.[/red]")
@@ -154,7 +166,9 @@ class CredentialsParser:
                     if credential_tuple:
                         credentials.append(credential_tuple)
 
-        console.print(f"[green]Found {len(credentials)} credentials matching '{description_pattern}'[/green]")
+        console.print(
+            f"[green]Found {len(credentials)} credentials matching '{description_pattern}'[/green]"
+        )
         return credentials
 
     def get_unique_description_patterns(self) -> List[str]:
@@ -173,28 +187,46 @@ class CredentialsParser:
     def extract_credentials_by_pattern_choice(self) -> List[Tuple[str, str]]:
         """Interactive method to let user choose description pattern."""
         patterns = self.get_unique_description_patterns()
-        
+
         if not patterns:
             console.print("[yellow]No credential descriptions found[/yellow]")
             return self.extract_nexus_credentials()  # Fallback to default method
 
         console.print("\n[bold]Available credential description patterns:[/bold]")
+        console.print("  0. [yellow]Enter a substring to match credentials[/yellow]")
         for i, pattern in enumerate(patterns, 1):
             console.print(f"  {i}. [cyan]{pattern}[/cyan]")
 
-        console.print(f"  {len(patterns) + 1}. [yellow]Extract all repository credentials[/yellow]")
+        console.print(
+            f"  {len(patterns) + 1}. [yellow]Extract all repository credentials[/yellow]"
+        )
 
         while True:
-            choice = Prompt.ask(f"\nSelect pattern (1-{len(patterns) + 1})")
-            
+            choice = Prompt.ask(f"\nSelect pattern (0-{len(patterns) + 1})")
+
             try:
-                index = int(choice) - 1
-                if index == len(patterns):
+                index = int(choice)
+                if index == 0:
+                    # User chose substring matching
+                    substring = Prompt.ask("Enter string")
+                    if substring.strip():
+                        console.print(
+                            f"[green]Searching for credentials matching: '{substring}'[/green]"
+                        )
+                        return self.extract_credentials_by_description(
+                            substring.strip()
+                        )
+                    else:
+                        console.print("[red]Please enter a valid search string.[/red]")
+                        continue
+                elif index == len(patterns) + 1:
                     # User chose to extract all
                     return self.extract_nexus_credentials()
-                elif 0 <= index < len(patterns):
-                    selected_pattern = patterns[index]
-                    console.print(f"[green]Selected pattern: '{selected_pattern}'[/green]")
+                elif 1 <= index <= len(patterns):
+                    selected_pattern = patterns[index - 1]
+                    console.print(
+                        f"[green]Selected pattern: '{selected_pattern}'[/green]"
+                    )
                     return self.extract_credentials_by_description(selected_pattern)
                 else:
                     console.print("[red]Invalid selection. Please try again.[/red]")

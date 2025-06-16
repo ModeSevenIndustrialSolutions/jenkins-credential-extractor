@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Tuple, TypedDict
 
 class ProjectInfo(TypedDict):
     """Type definition for project information."""
+
     name: str
     full_name: str
     jenkins_url: Optional[str]
@@ -125,27 +126,34 @@ PROJECT_DESCRIPTIONS: Dict[str, str] = {
 
 def get_projects_with_jenkins() -> List[Tuple[str, ProjectInfo]]:
     """Return list of projects that have Jenkins servers."""
-    return [(key, project) for key, project in PROJECT_MAPPINGS.items() if project["has_jenkins"]]
+    return [
+        (key, project)
+        for key, project in PROJECT_MAPPINGS.items()
+        if project["has_jenkins"]
+    ]
 
 
 def find_project_by_alias(search_term: str) -> Optional[str]:
     """Find a project key by searching through aliases and names."""
     search_term_lower = search_term.lower().replace("-", "").replace("_", "")
-    
+
     for key, project in PROJECT_MAPPINGS.items():
         # Check exact key match
         if key.lower().replace("-", "").replace("_", "") == search_term_lower:
             return key
-            
+
         # Check name match
-        if project["name"].lower().replace("-", "").replace("_", "") == search_term_lower:
+        if (
+            project["name"].lower().replace("-", "").replace("_", "")
+            == search_term_lower
+        ):
             return key
-            
+
         # Check aliases
         for alias in project["aliases"]:
             if alias.lower().replace("-", "").replace("_", "") == search_term_lower:
                 return key
-    
+
     return None
 
 

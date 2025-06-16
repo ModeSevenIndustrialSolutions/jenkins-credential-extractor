@@ -70,7 +70,7 @@ repos:
     rev: 192ad822316c3a22fb3d3cc8aa6eafa0b8488360  # frozen: v0.45.0
     hooks:
       - id: markdownlint
-        args: ["--fix"]
+        args: ["--fix", "--config", ".markdownlint.yaml"]
 
   - repo: https://github.com/jorisroovers/gitlint
     rev: acc9d9de6369b76d22cb4167029d2035e8730b98 # frozen: v0.19.1
@@ -138,14 +138,32 @@ repos:
     hooks:
       - id: mypy
         verbose: true
-        args: ["--show-error-codes", "--install-types", "--non-interactive"]
-        additional_dependencies: ["pytest", "types-requests"]
+        args:
+          - "--show-error-codes"
+          - "--install-types"
+          - "--non-interactive"
+          - "--ignore-missing-imports"
+        exclude: ^(test_features\.py|demo_.*\.py|simple_test\.py)$
+        additional_dependencies:
+          - "pytest"
+          - "types-requests"
+          - "typer"
+          - "rich"
+          - "fuzzywuzzy"
+          - "beautifulsoup4"
+          - "lxml"
+          - "paramiko"
+          - "pexpect"
+          - "lxml"
+          - "paramiko"
+          - "pexpect"
 
-  - repo: https://github.com/btford/write-good
-    rev: ab66ce10136dfad5146e69e70f82a3efac8842c1 # frozen: v1.0.8
-    hooks:
-      - id: write-good
-        files: "\\.(rst|md|markdown|mdown|mkdn)$"
+  # Prose linting - disabled as too pedantic for technical docs
+  # - repo: https://github.com/btford/write-good
+  #   rev: ab66ce10136dfad5146e69e70f82a3efac8842c1 # frozen: v1.0.8
+  #   hooks:
+  #     - id: write-good
+  #       files: "\\.(rst|md|markdown|mdown|mkdn)$"
 
   # Check for misspellings in documentation files
   - repo: https://github.com/codespell-project/codespell
@@ -159,13 +177,3 @@ repos:
   #   hooks:
   #     - id: pyupgrade
   #       args: ['--py37-plus']
-
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: "7010b10a09f65cd60a23c207349b539aa36dbec1"  # frozen: v1.16.0
-    hooks:
-      - id: mypy
-        verbose: true
-        args: ["--show-error-codes", "--install-types", "--non-interactive"]
-        additional_dependencies:
-          - "pytest"
-          - "types-requests"

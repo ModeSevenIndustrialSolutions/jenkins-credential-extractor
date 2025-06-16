@@ -21,6 +21,15 @@ dependencies = [
     "rich>=13.0.0",
     "fuzzywuzzy[speedup]>=0.18.0",
     "pexpect>=4.8.0",
+    # Enhanced authentication and automation
+    "google-auth>=2.40.3",
+    "google-auth-oauthlib>=1.2.2",
+    "python-jenkins>=1.8.2",
+    "keyring>=25.6.0",
+    "cryptography>=45.0.4",
+    "requests-oauthlib>=2.0.0",
+    # Optional for complex auth scenarios
+    "selenium>=4.15.0; extra == 'selenium'",
 ]
 requires-python = ">=3.10"
 readme = "README.md"
@@ -49,15 +58,6 @@ jenkins-credential-extractor = "jenkins_credential_extractor.cli:app"
 jce = "jenkins_credential_extractor.cli:app"
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "black>=23.0.0",
-    "isort>=5.12.0",
-    "flake8>=6.0.0",
-    "mypy>=1.0.0",
-    "pre-commit>=3.0.0",
-]
 
 [tool.pdm]
 distribution = true
@@ -71,7 +71,7 @@ lint = [
     "black>=23.0.0",
     "isort>=5.12.0",
     "flake8>=6.0.0",
-    "mypy>=1.0.0",
+    "mypy>=1.16.1",
 ]
 dev = [
     "pre-commit>=3.0.0",

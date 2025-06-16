@@ -240,7 +240,7 @@ def extract_project_from_hostname(hostname: str) -> Optional[str]:
     """Extract project identifier from Jenkins hostname."""
     hostname_lower = hostname.lower()
 
-    # Map hostname patterns to project keys
+    # Map hostname patterns to project keys (only for actual projects, not infrastructure)
     hostname_patterns = {
         "agl": ["agl"],
         "akraino": ["akraino"],
@@ -250,7 +250,7 @@ def extract_project_from_hostname(hostname: str) -> Optional[str]:
         "onap": ["onap", "ecomp"],
         "opendaylight": ["odl", "opendaylight"],
         "o-ran-sc": ["oran", "o-ran"],
-        "lfit": ["lfit"],  # Linux Foundation IT
+        # Note: "lfit" is infrastructure, not a user project
     }
 
     for project_key, patterns in hostname_patterns.items():
@@ -341,87 +341,6 @@ def parse_lf_inventory() -> Dict[str, Set[str]]:
     return {}
 
 
-def display_jenkins_servers() -> None:
-    """Display available Jenkins servers in a nice format."""
-    try:
-        servers = get_jenkins_servers()
-        if not servers:
-            console.print(
-                "[yellow]No Jenkins servers found in Tailscale network[/yellow]"
-            )
-            return
-
-        console.print("\n[bold]Available Jenkins servers:[/bold]")
-        for ip, hostname in servers:
-            console.print(f"  [cyan]{ip}[/cyan] → [green]{hostname}[/green]")
-
-    except TailscaleError as e:
-        console.print(f"[red]Error: {e} ❌[/red]")
-
-
-def display_enhanced_jenkins_servers() -> None:
-    """Display all Jenkins servers with enhanced information."""
-    try:
-        servers = get_all_jenkins_servers_with_status()
-        if not servers:
-            console.print(
-                "[yellow]No Jenkins servers found in Tailscale network[/yellow]"
-            )
-            return
-
-        console.print("\n[bold]Available Jenkins servers:[/bold]")
-
-        project_servers, unknown_servers = _group_servers_by_project(servers)
-        _display_project_servers(project_servers)
-        _display_unknown_servers(unknown_servers)
-
-    except TailscaleError as e:
-        console.print(f"[red]Error: {e} ❌[/red]")
-
-
-def _group_servers_by_project(
-    servers: List[Tuple[str, str, str]],
-) -> Tuple[Dict[str, List[Tuple[str, str, str]]], List[Tuple[str, str, str]]]:
-    """Group servers by project."""
-    project_servers: Dict[str, List[Tuple[str, str, str]]] = {}
-    unknown_servers: List[Tuple[str, str, str]] = []
-
-    for ip, hostname, status in servers:
-        project = extract_project_from_hostname(hostname)
-        if project:
-            if project not in project_servers:
-                project_servers[project] = []
-            project_servers[project].append((ip, hostname, status))
-        else:
-            unknown_servers.append((ip, hostname, status))
-
-    return project_servers, unknown_servers
-
-
-def _display_project_servers(
-    project_servers: Dict[str, List[Tuple[str, str, str]]],
-) -> None:
-    """Display servers grouped by project."""
-    for project, server_list in sorted(project_servers.items()):
-        console.print(f"\n[bold cyan]{project.upper()}:[/bold cyan]")
-        for ip, hostname, status in server_list:
-            status_color = "green" if status == "online" else "red"
-            console.print(
-                f"  [cyan]{ip}[/cyan] → [white]{hostname}[/white] [{status_color}]{status}[/{status_color}]"
-            )
-
-
-def _display_unknown_servers(unknown_servers: List[Tuple[str, str, str]]) -> None:
-    """Display unknown servers."""
-    if unknown_servers:
-        console.print("\n[bold yellow]Other Jenkins servers:[/bold yellow]")
-        for ip, hostname, status in unknown_servers:
-            status_color = "green" if status == "online" else "red"
-            console.print(
-                f"  [cyan]{ip}[/cyan] → [white]{hostname}[/white] [{status_color}]{status}[/{status_color}]"
-            )
-
-
 def get_jenkins_server_for_project(project_key: str) -> Optional[Tuple[str, str]]:
     """Get the Jenkins server IP and hostname for a specific project."""
     return get_enhanced_jenkins_server_for_project(project_key)
@@ -477,3 +396,44 @@ def rebuild_server_list() -> Dict[str, List[str]]:
         f"[bold green]✓ Rebuilt server list with {len(all_servers)} projects[/bold green]"
     )
     return all_servers
+
+
+def display_compact_jenkins_servers() -> None:
+    """Display all Jenkins servers in a compact column-aligned format."""
+    try:
+        servers = get_all_jenkins_servers_with_status()
+        if not servers:
+            console.print(
+                "[yellow]No Jenkins servers found in Tailscale network[/yellow]"
+            )
+            return
+
+        console.print("\n[bold]Available Jenkins servers:[/bold]")
+
+        # Calculate column widths for alignment
+        max_ip_width = max(len(ip) for ip, _, _ in servers) if servers else 15
+        max_status_width = (
+            max(len(status) for _, _, status in servers) if servers else 7
+        )
+
+        # Sort servers by project name for better organization
+        all_server_data: List[Tuple[str, str, str, str]] = []
+        for ip, hostname, status in servers:
+            project = extract_project_from_hostname(hostname)
+            project_display = project.upper() if project else "OTHER"
+            all_server_data.append((ip, status, hostname, project_display))
+
+        # Sort by project, then by hostname
+        all_server_data.sort(key=lambda x: (x[3], x[2]))
+
+        # Display each server in column-aligned format
+        for ip, status, hostname, project_display in all_server_data:
+            status_color = "green" if status == "online" else "red"
+            console.print(
+                f"[cyan]{ip:<{max_ip_width}}[/cyan]  "
+                f"[{status_color}]{status:<{max_status_width}}[/{status_color}]  "
+                f"[white]{hostname}[/white] → [bold cyan]{project_display}[/bold cyan]"
+            )
+
+    except TailscaleError as e:
+        console.print(f"[red]Error: {e} ❌[/red]")

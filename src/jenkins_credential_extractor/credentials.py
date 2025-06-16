@@ -4,10 +4,13 @@
 """Jenkins credentials.xml parser for extracting repository credentials."""
 
 import xml.etree.ElementTree as ET
-from typing import Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 from rich.console import Console
 from rich.prompt import Prompt
+
+if TYPE_CHECKING:
+    from .enhanced_jenkins import EnhancedJenkinsAutomation
 
 console = Console()
 
@@ -193,13 +196,13 @@ class CredentialsParser:
             return self.extract_nexus_credentials()  # Fallback to default method
 
         console.print("\n[bold]Available credential description patterns:[/bold]")
-        console.print("  0. [yellow]Enter a substring to match credentials[/yellow]")
         for i, pattern in enumerate(patterns, 1):
             console.print(f"  {i}. [cyan]{pattern}[/cyan]")
 
         console.print(
             f"  {len(patterns) + 1}. [yellow]Extract all repository credentials[/yellow]"
         )
+        console.print("  0. [yellow]Enter a substring to match credentials[/yellow]")
 
         while True:
             choice = Prompt.ask(f"\nSelect pattern (0-{len(patterns) + 1})")
@@ -233,3 +236,100 @@ class CredentialsParser:
             except ValueError:
                 # Try as description pattern search
                 return self.extract_credentials_by_description(choice)
+
+    def extract_and_decrypt_credentials_automated(
+        self,
+        jenkins_automation: "EnhancedJenkinsAutomation",
+        description_pattern: Optional[str] = None,
+        use_batch_optimization: bool = True,
+    ) -> List[Tuple[str, str]]:
+        """Extract and automatically decrypt credentials using enhanced automation."""
+        # Extract encrypted credentials
+        if description_pattern:
+            encrypted_credentials = self.extract_credentials_by_description(
+                description_pattern
+            )
+        else:
+            encrypted_credentials = self.extract_nexus_credentials()
+
+        if not encrypted_credentials:
+            console.print("[yellow]No credentials found to decrypt[/yellow]")
+            return []
+
+        console.print(
+            f"[blue]Found {len(encrypted_credentials)} encrypted credentials[/blue]"
+        )
+
+        # Validate Jenkins access
+        if not jenkins_automation.validate_jenkins_access():
+            console.print("[red]Jenkins access validation failed[/red]")
+            return []
+
+        # Decrypt passwords
+        if use_batch_optimization and len(encrypted_credentials) > 5:
+            console.print("[blue]Using batch optimization for efficiency[/blue]")
+            return jenkins_automation.batch_decrypt_passwords_optimized(
+                encrypted_credentials
+            )
+        else:
+            return jenkins_automation.batch_decrypt_passwords_parallel(
+                encrypted_credentials
+            )
+
+    def interactive_automated_extraction(
+        self, jenkins_automation
+    ) -> List[Tuple[str, str]]:
+        """Interactive method with automated decryption support."""
+        patterns = self.get_unique_description_patterns()
+
+        if not patterns:
+            console.print("[yellow]No credential descriptions found[/yellow]")
+            return self.extract_and_decrypt_credentials_automated(jenkins_automation)
+
+        console.print("\n[bold]Available credential description patterns:[/bold]")
+        for i, pattern in enumerate(patterns, 1):
+            console.print(f"  {i}. [cyan]{pattern}[/cyan]")
+
+        console.print(
+            f"  {len(patterns) + 1}. [yellow]Extract all repository credentials[/yellow]"
+        )
+        console.print("  0. [yellow]Enter a substring to match credentials[/yellow]")
+
+        while True:
+            choice = Prompt.ask(f"\nSelect pattern (0-{len(patterns) + 1})")
+
+            try:
+                index = int(choice)
+                if index == 0:
+                    # User chose substring matching
+                    substring = Prompt.ask("Enter string")
+                    if substring.strip():
+                        console.print(
+                            f"[green]Searching for credentials matching: '{substring}'[/green]"
+                        )
+                        return self.extract_and_decrypt_credentials_automated(
+                            jenkins_automation, substring.strip()
+                        )
+                    else:
+                        console.print("[red]Please enter a valid search string.[/red]")
+                        continue
+                elif index == len(patterns) + 1:
+                    # User chose to extract all
+                    return self.extract_and_decrypt_credentials_automated(
+                        jenkins_automation
+                    )
+                elif 1 <= index <= len(patterns):
+                    selected_pattern = patterns[index - 1]
+                    console.print(
+                        f"[green]Selected pattern: '{selected_pattern}'[/green]"
+                    )
+                    return self.extract_and_decrypt_credentials_automated(
+                        jenkins_automation, selected_pattern
+                    )
+                else:
+                    console.print("[red]Invalid selection. Please try again.[/red]")
+            except ValueError:
+                # Try as description pattern search
+                return self.extract_and_decrypt_credentials_automated(
+                    jenkins_automation, choice
+                )

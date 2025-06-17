@@ -6,7 +6,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
@@ -23,12 +23,13 @@ class JenkinsConfigManager:
         self.config_dir.mkdir(exist_ok=True)
         self.config_file = self.config_dir / "config.json"
 
-    def load_config(self) -> Dict:
+    def load_config(self) -> dict[Any, Any]:
         """Load configuration from file."""
         if self.config_file.exists():
             try:
                 with open(self.config_file, "r") as f:
-                    return json.load(f)
+                    result: dict[Any, Any] = json.load(f)
+                    return result
             except Exception as e:
                 console.print(f"[yellow]Could not load config: {e}[/yellow]")
 
@@ -60,7 +61,7 @@ class JenkinsConfigManager:
         # Get the client secrets file path
         secrets_file = Prompt.ask(
             "Enter path to your client secrets JSON file",
-            default=str(self.config_dir / "client_secrets.json")
+            default=str(self.config_dir / "client_secrets.json"),
         )
 
         if not os.path.exists(secrets_file):
@@ -82,7 +83,7 @@ class JenkinsConfigManager:
             config = self.load_config()
             config["google_oauth"] = {
                 "client_secrets_file": secrets_file,
-                "enabled": True
+                "enabled": True,
             }
             self.save_config(config)
 
@@ -92,13 +93,13 @@ class JenkinsConfigManager:
             console.print(f"[red]Error validating client secrets: {e}[/red]")
             return None
 
-    def get_google_oauth_config(self) -> Optional[str]:
+    def get_google_oauth_config(self) -> str | None:
         """Get Google OAuth configuration."""
         config = self.load_config()
-        oauth_config = config.get("google_oauth", {})
+        oauth_config: dict[Any, Any] = config.get("google_oauth", {})
 
         if oauth_config.get("enabled") and oauth_config.get("client_secrets_file"):
-            secrets_file = oauth_config["client_secrets_file"]
+            secrets_file: str = oauth_config["client_secrets_file"]
             if os.path.exists(secrets_file):
                 return secrets_file
 
@@ -108,20 +109,17 @@ class JenkinsConfigManager:
         """Setup and save Jenkins connection details."""
         config = self.load_config()
 
-        config["jenkins"] = {
-            "url": jenkins_url,
-            "ip": jenkins_ip,
-            "last_used": True
-        }
+        config["jenkins"] = {"url": jenkins_url, "ip": jenkins_ip, "last_used": True}
 
         self.save_config(config)
 
-    def get_jenkins_connections(self) -> Dict:
+    def get_jenkins_connections(self) -> dict[Any, Any]:
         """Get saved Jenkins connections."""
         config = self.load_config()
-        return config.get("jenkins", {})
+        result: dict[Any, Any] = config.get("jenkins", {})
+        return result
 
-    def setup_initial_configuration(self) -> Dict:
+    def setup_initial_configuration(self) -> dict[Any, Any]:
         """Interactive setup for initial configuration."""
         console.print("\n[bold]Jenkins Credential Extractor Setup[/bold]")
 
@@ -132,7 +130,9 @@ class JenkinsConfigManager:
         self.setup_jenkins_connection(jenkins_url, jenkins_ip)
 
         # Optional Google OAuth setup
-        if Confirm.ask("\nWould you like to set up Google OAuth for automatic authentication?"):
+        if Confirm.ask(
+            "\nWould you like to set up Google OAuth for automatic authentication?"
+        ):
             oauth_file = self.setup_google_oauth()
             if oauth_file:
                 console.print("[green]✓ Google OAuth configured[/green]")
@@ -144,12 +144,14 @@ class JenkinsConfigManager:
         config["auth_preferences"] = {
             "preferred_method": "api_token",  # Default to API token
             "cache_sessions": True,
-            "session_timeout_hours": 24
+            "session_timeout_hours": 24,
         }
 
         self.save_config(config)
 
         console.print("\n[green]✓ Initial configuration completed![/green]")
-        console.print("You can modify these settings later by running the setup command again.")
+        console.print(
+            "You can modify these settings later by running the setup command again."
+        )
 
         return config

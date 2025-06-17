@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.prompt import Prompt
 
 if TYPE_CHECKING:
-    from .enhanced_jenkins import EnhancedJenkinsAutomation
+    from .jenkins import JenkinsAutomation
 
 console = Console()
 
@@ -239,7 +239,7 @@ class CredentialsParser:
 
     def extract_and_decrypt_credentials_automated(
         self,
-        jenkins_automation: "EnhancedJenkinsAutomation",
+        jenkins_automation: "JenkinsAutomation",
         description_pattern: Optional[str] = None,
         use_batch_optimization: bool = True,
     ) -> List[Tuple[str, str]]:

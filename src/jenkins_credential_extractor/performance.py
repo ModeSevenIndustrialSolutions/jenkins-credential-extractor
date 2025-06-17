@@ -8,13 +8,12 @@ import statistics
 import json
 import csv
 from dataclasses import dataclass, asdict
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional
 from pathlib import Path
 from datetime import datetime
 
 from rich.console import Console
 from rich.table import Table
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
 
 console = Console()
 
@@ -22,6 +21,7 @@ console = Console()
 @dataclass
 class BenchmarkResult:
     """Results from a benchmark run."""
+
     operation: str
     total_items: int
     successful_items: int
@@ -42,6 +42,7 @@ class BenchmarkResult:
 @dataclass
 class PerformanceMetrics:
     """Individual operation performance metrics."""
+
     duration: float
     success: bool
     error_message: Optional[str] = None
@@ -54,21 +55,23 @@ class PerformanceBenchmark:
 
     def __init__(self, results_dir: Optional[Path] = None):
         """Initialize benchmark system."""
-        self.results_dir = results_dir or Path.home() / ".jenkins_extractor" / "benchmarks"
+        self.results_dir = (
+            results_dir or Path.home() / ".jenkins_extractor" / "benchmarks"
+        )
         self.results_dir.mkdir(parents=True, exist_ok=True)
         self.current_metrics: List[PerformanceMetrics] = []
         self.operation_name = ""
         self.start_time = 0.0
         self.method_used = ""
-        self.thread_count = None
-        self.batch_size = None
+        self.thread_count: Optional[int] = None
+        self.batch_size: Optional[int] = None
 
     def start_benchmark(
         self,
         operation: str,
         method: str,
         thread_count: Optional[int] = None,
-        batch_size: Optional[int] = None
+        batch_size: Optional[int] = None,
     ) -> None:
         """Start a new benchmark run."""
         self.operation_name = operation
@@ -90,7 +93,7 @@ class PerformanceBenchmark:
         success: bool,
         error_message: Optional[str] = None,
         retry_count: int = 0,
-        thread_id: Optional[str] = None
+        thread_id: Optional[str] = None,
     ) -> None:
         """Record metrics for a single operation."""
         metric = PerformanceMetrics(
@@ -98,7 +101,7 @@ class PerformanceBenchmark:
             success=success,
             error_message=error_message,
             retry_count=retry_count,
-            thread_id=thread_id
+            thread_id=thread_id,
         )
         self.current_metrics.append(metric)
 
@@ -126,7 +129,7 @@ class PerformanceBenchmark:
                 timestamp=datetime.now().isoformat(),
                 method_used=self.method_used,
                 thread_count=self.thread_count,
-                batch_size=self.batch_size
+                batch_size=self.batch_size,
             )
 
         durations = [m.duration for m in self.current_metrics]
@@ -152,7 +155,7 @@ class PerformanceBenchmark:
             timestamp=datetime.now().isoformat(),
             method_used=self.method_used,
             thread_count=self.thread_count,
-            batch_size=self.batch_size
+            batch_size=self.batch_size,
         )
 
         self._save_result(result)
@@ -166,7 +169,7 @@ class PerformanceBenchmark:
         filename = f"{result.operation}_{result.method_used}_{timestamp}.json"
         filepath = self.results_dir / filename
 
-        with open(filepath, 'w') as f:
+        with open(filepath, "w") as f:
             json.dump(asdict(result), f, indent=2)
 
         console.print(f"[green]💾 Benchmark results saved to {filepath}[/green]")
@@ -184,7 +187,9 @@ class PerformanceBenchmark:
         table.add_row("Successful", str(result.successful_items), "items")
         table.add_row("Failed", str(result.failed_items), "items")
         table.add_row("Total Duration", f"{result.total_duration:.2f}", "seconds")
-        table.add_row("Avg Duration/Item", f"{result.average_duration_per_item:.3f}", "seconds")
+        table.add_row(
+            "Avg Duration/Item", f"{result.average_duration_per_item:.3f}", "seconds"
+        )
         table.add_row("Throughput", f"{result.throughput_per_second:.2f}", "items/sec")
         table.add_row("Error Rate", f"{result.error_rate:.1f}", "%")
 
@@ -206,7 +211,9 @@ class PerformanceBenchmark:
         elif result.throughput_per_second >= 2.0:
             console.print("[yellow]⚠ Good throughput (≥2 items/sec)[/yellow]")
         else:
-            console.print("[red]⚠ Low throughput (<2 items/sec) - consider optimization[/red]")
+            console.print(
+                "[red]⚠ Low throughput (<2 items/sec) - consider optimization[/red]"
+            )
 
         # Error rate assessment
         if result.error_rate == 0:
@@ -218,9 +225,13 @@ class PerformanceBenchmark:
 
         # Method recommendations
         if result.total_items >= 50 and result.method_used == "sequential":
-            console.print("[yellow]💡 Consider using parallel processing for better performance[/yellow]")
+            console.print(
+                "[yellow]💡 Consider using parallel processing for better performance[/yellow]"
+            )
         elif result.total_items >= 100 and result.method_used == "parallel":
-            console.print("[yellow]💡 Consider using optimized batch processing[/yellow]")
+            console.print(
+                "[yellow]💡 Consider using optimized batch processing[/yellow]"
+            )
 
     def compare_methods(self, operation: str, limit: int = 5) -> None:
         """Compare performance across different methods for an operation."""
@@ -245,7 +256,7 @@ class PerformanceBenchmark:
                 f"{result.total_duration:.1f}s",
                 f"{result.throughput_per_second:.2f}/s",
                 f"{result.error_rate:.1f}%",
-                result.timestamp[:10]  # Just the date
+                result.timestamp[:10],  # Just the date
             )
 
         console.print(table)
@@ -254,12 +265,18 @@ class PerformanceBenchmark:
         best_throughput = max(results, key=lambda r: r.throughput_per_second)
         best_reliability = min(results, key=lambda r: r.error_rate)
 
-        console.print(f"\n[green]🏆 Best throughput: {best_throughput.method_used} "
-                     f"({best_throughput.throughput_per_second:.2f} items/sec)[/green]")
-        console.print(f"[green]🛡️ Best reliability: {best_reliability.method_used} "
-                     f"({best_reliability.error_rate:.1f}% error rate)[/green]")
+        console.print(
+            f"\n[green]🏆 Best throughput: {best_throughput.method_used} "
+            f"({best_throughput.throughput_per_second:.2f} items/sec)[/green]"
+        )
+        console.print(
+            f"[green]🛡️ Best reliability: {best_reliability.method_used} "
+            f"({best_reliability.error_rate:.1f}% error rate)[/green]"
+        )
 
-    def load_recent_results(self, operation: str, limit: int = 10) -> List[BenchmarkResult]:
+    def load_recent_results(
+        self, operation: str, limit: int = 10
+    ) -> List[BenchmarkResult]:
         """Load recent benchmark results for an operation."""
         results = []
         pattern = f"{operation}_*.json"
@@ -267,12 +284,12 @@ class PerformanceBenchmark:
         matching_files = sorted(
             self.results_dir.glob(pattern),
             key=lambda p: p.stat().st_mtime,
-            reverse=True
+            reverse=True,
         )[:limit]
 
         for filepath in matching_files:
             try:
-                with open(filepath, 'r') as f:
+                with open(filepath, "r") as f:
                     data = json.load(f)
                     result = BenchmarkResult(**data)
                     results.append(result)
@@ -281,7 +298,9 @@ class PerformanceBenchmark:
 
         return results
 
-    def generate_csv_report(self, operation: str, output_file: Optional[Path] = None) -> Path:
+    def generate_csv_report(
+        self, operation: str, output_file: Optional[Path] = None
+    ) -> Path:
         """Generate CSV report of all results for an operation."""
         results = self.load_recent_results(operation, limit=100)
 
@@ -292,29 +311,39 @@ class PerformanceBenchmark:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             output_file = self.results_dir / f"{operation}_report_{timestamp}.csv"
 
-        with open(output_file, 'w', newline='') as csvfile:
+        with open(output_file, "w", newline="") as csvfile:
             fieldnames = [
-                'timestamp', 'method_used', 'total_items', 'successful_items',
-                'failed_items', 'total_duration', 'average_duration_per_item',
-                'throughput_per_second', 'error_rate', 'thread_count', 'batch_size'
+                "timestamp",
+                "method_used",
+                "total_items",
+                "successful_items",
+                "failed_items",
+                "total_duration",
+                "average_duration_per_item",
+                "throughput_per_second",
+                "error_rate",
+                "thread_count",
+                "batch_size",
             ]
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
             writer.writeheader()
             for result in results:
-                writer.writerow({
-                    'timestamp': result.timestamp,
-                    'method_used': result.method_used,
-                    'total_items': result.total_items,
-                    'successful_items': result.successful_items,
-                    'failed_items': result.failed_items,
-                    'total_duration': result.total_duration,
-                    'average_duration_per_item': result.average_duration_per_item,
-                    'throughput_per_second': result.throughput_per_second,
-                    'error_rate': result.error_rate,
-                    'thread_count': result.thread_count,
-                    'batch_size': result.batch_size
-                })
+                writer.writerow(
+                    {
+                        "timestamp": result.timestamp,
+                        "method_used": result.method_used,
+                        "total_items": result.total_items,
+                        "successful_items": result.successful_items,
+                        "failed_items": result.failed_items,
+                        "total_duration": result.total_duration,
+                        "average_duration_per_item": result.average_duration_per_item,
+                        "throughput_per_second": result.throughput_per_second,
+                        "error_rate": result.error_rate,
+                        "thread_count": result.thread_count,
+                        "batch_size": result.batch_size,
+                    }
+                )
 
         console.print(f"[green]📊 CSV report generated: {output_file}[/green]")
         return output_file
@@ -323,7 +352,9 @@ class PerformanceBenchmark:
 class PerformanceTracker:
     """Context manager for tracking individual operation performance."""
 
-    def __init__(self, benchmark: PerformanceBenchmark, thread_id: Optional[str] = None):
+    def __init__(
+        self, benchmark: PerformanceBenchmark, thread_id: Optional[str] = None
+    ):
         self.benchmark = benchmark
         self.thread_id = thread_id
         self.start_time = 0.0
@@ -343,7 +374,7 @@ class PerformanceTracker:
             success=success,
             error_message=error_message,
             retry_count=self.retry_count,
-            thread_id=self.thread_id
+            thread_id=self.thread_id,
         )
 
     def increment_retry(self):
@@ -354,7 +385,7 @@ class PerformanceTracker:
 def benchmark_automation_methods(
     automation,
     test_credentials: List[tuple],
-    methods_to_test: Optional[List[str]] = None
+    methods_to_test: Optional[List[str]] = None,
 ) -> Dict[str, BenchmarkResult]:
     """Benchmark different automation methods with the same dataset."""
     if methods_to_test is None:
@@ -379,13 +410,13 @@ def benchmark_automation_methods(
                 operation="password_decryption",
                 method=method,
                 thread_count=thread_count,
-                batch_size=len(test_credentials)
+                batch_size=len(test_credentials),
             )
 
             # Execute based on method
             if method == "sequential":
                 for username, encrypted_pass in test_credentials:
-                    with PerformanceTracker(benchmark) as tracker:
+                    with PerformanceTracker(benchmark):
                         try:
                             automation._decrypt_password_with_retry(encrypted_pass)
                         except Exception:

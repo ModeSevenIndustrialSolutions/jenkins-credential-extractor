@@ -5,36 +5,43 @@
 
 import time
 import random
-from typing import Any, Callable, Optional, Type, Union
+from typing import Any, Callable, Optional, Type, Dict, TypeVar
 from functools import wraps
 import requests
 from rich.console import Console
 
 console = Console()
 
+T = TypeVar("T")
+
 
 class JenkinsError(Exception):
     """Base exception for Jenkins-related errors."""
+
     pass
 
 
 class AuthenticationError(JenkinsError):
     """Raised when authentication fails."""
+
     pass
 
 
 class NetworkError(JenkinsError):
     """Raised when network operations fail."""
+
     pass
 
 
 class ScriptExecutionError(JenkinsError):
     """Raised when Jenkins script execution fails."""
+
     pass
 
 
 class ConfigurationError(JenkinsError):
     """Raised when configuration is invalid."""
+
     pass
 
 
@@ -48,7 +55,7 @@ class RetryConfig:
         max_delay: float = 60.0,
         exponential_base: float = 2.0,
         jitter: bool = True,
-        backoff_factor: float = 1.0
+        backoff_factor: float = 1.0,
     ):
         self.max_retries = max_retries
         self.base_delay = base_delay
@@ -61,7 +68,9 @@ class RetryConfig:
 def calculate_retry_delay(attempt: int, config: RetryConfig) -> float:
     """Calculate delay before next retry attempt."""
     # Exponential backoff
-    delay = config.base_delay * (config.exponential_base ** attempt) * config.backoff_factor
+    delay = (
+        config.base_delay * (config.exponential_base**attempt) * config.backoff_factor
+    )
 
     # Cap at maximum delay
     delay = min(delay, config.max_delay)
@@ -77,7 +86,7 @@ def calculate_retry_delay(attempt: int, config: RetryConfig) -> float:
 def retry_with_backoff(
     retry_config: Optional[RetryConfig] = None,
     exceptions: tuple = (requests.RequestException, NetworkError),
-    on_retry: Optional[Callable[[int, Exception], None]] = None
+    on_retry: Optional[Callable[[int, Exception], None]] = None,
 ):
     """Decorator for retrying function calls with exponential backoff."""
     if retry_config is None:
@@ -113,9 +122,13 @@ def retry_with_backoff(
                     time.sleep(delay)
 
             # All retries exhausted
-            raise last_exception
+            if last_exception is not None:
+                raise last_exception
+            else:
+                raise RuntimeError("All retry attempts failed")
 
         return wrapper
+
     return decorator
 
 
@@ -126,13 +139,13 @@ class CircuitBreaker:
         self,
         failure_threshold: int = 5,
         timeout: float = 60.0,
-        expected_exception: Type[Exception] = Exception
+        expected_exception: Type[Exception] = Exception,
     ):
         self.failure_threshold = failure_threshold
         self.timeout = timeout
         self.expected_exception = expected_exception
         self.failure_count = 0
-        self.last_failure_time = 0
+        self.last_failure_time = 0.0
         self.state = "CLOSED"  # CLOSED, OPEN, HALF_OPEN
 
     def call(self, func: Callable, *args, **kwargs) -> Any:
@@ -168,17 +181,15 @@ class ErrorRecoveryManager:
     """Manages error recovery strategies for Jenkins operations."""
 
     def __init__(self):
-        self.circuit_breakers = {}
-        self.error_counts = {}
-        self.last_errors = {}
+        self.circuit_breakers: Dict[str, CircuitBreaker] = {}
+        self.error_counts: Dict[str, int] = {}
+        self.last_errors: Dict[str, Dict[str, Any]] = {}
 
     def get_circuit_breaker(self, operation: str) -> CircuitBreaker:
         """Get or create circuit breaker for an operation."""
         if operation not in self.circuit_breakers:
             self.circuit_breakers[operation] = CircuitBreaker(
-                failure_threshold=3,
-                timeout=30.0,
-                expected_exception=JenkinsError
+                failure_threshold=3, timeout=30.0, expected_exception=JenkinsError
             )
         return self.circuit_breakers[operation]
 
@@ -191,7 +202,7 @@ class ErrorRecoveryManager:
         self.last_errors[operation] = {
             "error": str(error),
             "type": type(error).__name__,
-            "timestamp": time.time()
+            "timestamp": time.time(),
         }
 
         console.print(f"[red]Error recorded for {operation}: {error}[/red]")
@@ -203,7 +214,7 @@ class ErrorRecoveryManager:
             "last_errors": self.last_errors.copy(),
             "circuit_breaker_states": {
                 op: cb.state for op, cb in self.circuit_breakers.items()
-            }
+            },
         }
 
     def reset_statistics(self) -> None:
@@ -218,6 +229,7 @@ class ErrorRecoveryManager:
 
 def handle_jenkins_errors(func: Callable) -> Callable:
     """Decorator to handle and categorize Jenkins-specific errors."""
+
     @wraps(func)
     def wrapper(*args, **kwargs) -> Any:
         try:
@@ -284,9 +296,7 @@ error_recovery = ErrorRecoveryManager()
 def log_performance_metrics(operation: str, duration: float, success: bool) -> None:
     """Log performance metrics for operations."""
     status = "SUCCESS" if success else "FAILURE"
-    console.print(
-        f"[blue]PERF[/blue] {operation}: {duration:.2f}s [{status}]"
-    )
+    console.print(f"[blue]PERF[/blue] {operation}: {duration:.2f}s [{status}]")
 
 
 class RateLimiter:
@@ -295,7 +305,7 @@ class RateLimiter:
     def __init__(self, requests_per_second: float = 5.0):
         self.requests_per_second = requests_per_second
         self.min_interval = 1.0 / requests_per_second
-        self.last_request_time = 0
+        self.last_request_time = 0.0
 
     def wait_if_needed(self) -> None:
         """Wait if necessary to respect rate limit."""
@@ -332,7 +342,7 @@ def safe_execute_with_recovery(
     func: Callable,
     *args,
     recovery_manager: Optional[ErrorRecoveryManager] = None,
-    **kwargs
+    **kwargs,
 ) -> Any:
     """Safely execute a function with comprehensive error recovery."""
     if recovery_manager is None:
@@ -340,11 +350,9 @@ def safe_execute_with_recovery(
 
     circuit_breaker = recovery_manager.get_circuit_breaker(operation)
     start_time = time.time()
-    success = False
 
     try:
         result = circuit_breaker.call(func, *args, **kwargs)
-        success = True
         duration = time.time() - start_time
         log_performance_metrics(operation, duration, True)
         return result

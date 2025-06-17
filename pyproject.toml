@@ -116,6 +116,8 @@ warn_no_return = true
 warn_unreachable = true
 strict_equality = true
 ignore_missing_imports = true
+explicit_package_bases = true
+mypy_path = "src"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

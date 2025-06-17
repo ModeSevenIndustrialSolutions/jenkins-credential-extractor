@@ -143,7 +143,9 @@ repos:
           - "--install-types"
           - "--non-interactive"
           - "--ignore-missing-imports"
-        exclude: ^(test_features\.py|demo_.*\.py|simple_test\.py)$
+          - "--explicit-package-bases"
+        files: ^src/
+        exclude: ^(test_features\.py|demo_.*\.py|simple_test\.py|error_handling\.py)$
         additional_dependencies:
           - "pytest"
           - "types-requests"

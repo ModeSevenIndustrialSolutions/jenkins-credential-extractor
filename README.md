@@ -5,9 +5,7 @@ SPDX-FileCopyrightText: 2025 The Linux Foundation
 
 # Jenkins Credential Extractor
 
-A comprehensive automation solution for bulk extracting and decrypting credentials from Jenkins servers
-in Linux Foundation projects. **Transforms a 45-minute manual process into a 2-minute automated workflow**
-with enterprise-grade reliability and security.
+A comprehensive automation solution for bulk extracting and decrypting credentials from Jenkins servers in Linux Foundation projects. **Transforms a 45-minute manual process into a 2-minute automated workflow** with enterprise-grade reliability and security.
 
 ## 🚀 Key Features
 
@@ -22,7 +20,7 @@ with enterprise-grade reliability and security.
 
 - **Jenkins API Tokens**: Traditional secure authentication with keyring storage
 - **Google OAuth2/OIDC**: Enterprise SSO integration with automatic token refresh
-- **Browser Session Extraction**: Seamless integration with existing authenticated sessions
+- **Browser Session Extraction**: Automatic cookie extraction from Chrome, Firefox, Edge, Safari
 - **Secure Storage**: Encrypted credential caching with automatic expiration
 
 ### **Performance Optimization**
@@ -80,10 +78,10 @@ jce extract \
   --pattern "nexus-*"
 ```
 
-### **Manual/Interactive Mode** (Legacy)
+### **Interactive Mode** (Project-Based Discovery)
 
 ```bash
-# Interactive project selection
+# Interactive project selection from Linux Foundation inventory
 jce extract
 
 # Direct project extraction
@@ -98,8 +96,9 @@ jce extract my-project --output credentials.txt
 2. **Tailscale**: For automatic Jenkins server discovery (optional)
    - macOS: Tailscale app installed in `/Applications/`
    - Linux: `tailscale` command available in PATH
-3. **SSH Access**: Key-based authentication to Jenkins servers (for legacy mode)
-4. **Jenkins Access**: Script console permissions for credential decryption
+3. **Jenkins Access**: API token or authentication credentials
+   - **Script Console Access**: Requires `Hudson/RunScripts` or `Overall/Administer` permission for optimal performance
+   - **Fallback Mode**: Works with basic API token for manual-assisted extraction
 
 ### Installation
 
@@ -117,22 +116,39 @@ pdm run jce --help
 
 ## 🔧 Authentication Setup
 
-### **Option 1: API Token Authentication** (Recommended)
+### **Option 1: Browser Session Extraction** (Recommended for Script Console Access)
+
+```bash
+# Automatic cookie extraction from your browser
+jce setup-auth --jenkins-url https://jenkins.example.com --method browser
+```
+
+**Features:**
+
+- Automatic extraction from Chrome, Firefox, Edge, Safari
+- Database querying for persistent session cookies
+- Manual fallback if automatic extraction fails
+- Best compatibility with script console automation
+
+### **Option 2: API Token Authentication** (Traditional)
 
 ```bash
 # Interactive setup
 jce setup-auth --jenkins-url https://jenkins.example.com --method api-token
 
-# Manual token configuration
+# Manual configuration
 # 1. Generate API token in Jenkins: User → Configure → API Token
 # 2. Store securely in system keyring
-jce config set-server my-jenkins \
-  --jenkins-url https://jenkins.example.com \
-  --auth-method api_token \
-  --username your-username
 ```
 
-### **Option 2: Google OAuth2/OIDC** (Enterprise)
+**Features:**
+
+- Traditional Jenkins authentication
+- Secure storage in system keyring
+- Works with basic API permissions
+- Fallback to manual decryption if script console unavailable
+
+### **Option 3: Google OAuth2/OIDC** (Enterprise SSO)
 
 ```bash
 # Download OAuth2 credentials from Google Cloud Console
@@ -140,18 +156,16 @@ jce config set-server my-jenkins \
 
 jce setup-auth \
   --jenkins-url https://jenkins.example.com \
-  --method google-oauth \
+  --method oauth \
   --client-secrets client_secrets.json
 ```
 
-### **Option 3: Browser Session** (Quick Testing)
+**Features:**
 
-```bash
-# Extract session from authenticated browser
-jce setup-auth \
-  --jenkins-url https://jenkins.example.com \
-  --method browser-session
-```
+- Enterprise SSO integration
+- Automatic token refresh
+- Multi-factor authentication support
+- Audit trail compliance
 
 ## 🚀 Usage Guide
 
@@ -174,16 +188,16 @@ jce extract \
   --jenkins-url https://jenkins.example.com \
   --jenkins-ip 192.168.1.100 \
   --batch \
-  --max-workers 20
+  --workers 20
 
 # Pattern-based filtering
 jce extract \
   --jenkins-url https://jenkins.example.com \
   --jenkins-ip 192.168.1.100 \
   --pattern "repo-*" \
-  --max-workers 10
+  --workers 10
 
-# Performance monitoring with legacy fallback
+# Manual automation fallback
 jce extract \
   --jenkins-url https://jenkins.example.com \
   --jenkins-ip 192.168.1.100 \
@@ -193,18 +207,11 @@ jce extract \
 ### **Configuration Management**
 
 ```bash
-# List configured servers
-jce config list
+# Show current configuration
+jce config --show
 
-# Show server details
-jce config show my-jenkins
-
-# Update configuration
-jce config update my-jenkins --max-workers 15
-
-# Export/import configuration
-jce config export --output backup.json
-jce config import --file backup.json
+# Reset configuration
+jce config --reset
 ```
 
 ### **Performance Monitoring**
@@ -216,27 +223,26 @@ jce benchmark \
   --jenkins-ip 192.168.1.100 \
   --test-methods sequential,parallel,optimized
 
-# Compare historical performance
-jce benchmark compare --operation password_decryption
-
 # Health check
-jce health-check --jenkins-url https://jenkins.example.com
+jce health-check \
+  --jenkins-url https://jenkins.example.com \
+  --jenkins-ip 192.168.1.100
 ```
 
-### **Legacy Mode** (Project-Based Discovery)
+### **Project Discovery Mode**
 
 ```bash
-# Interactive project selection
+# Interactive project selection from Linux Foundation inventory
 jce extract
-
-# Direct project extraction
-jce extract my-project --output credentials.txt
 
 # List available projects
 jce list-projects
 
-# Show project details
-jce show-project my-project
+# List Jenkins servers in Tailscale network
+jce list-servers
+
+# Parse local credentials file
+jce parse-local credentials.xml --pattern "nexus-*"
 ```
 
 ## 📊 Performance Optimization
@@ -254,13 +260,13 @@ jce show-project my-project
 **For Large Datasets (100+ credentials):**
 
 ```bash
-jce extract --batch --max-workers 20
+jce extract --batch --workers 20
 ```
 
 **For Network-Constrained Environments:**
 
 ```bash
-jce extract --max-workers 5 --no-batch
+jce extract --workers 5 --no-batch
 ```
 
 **For Maximum Reliability:**
@@ -309,7 +315,7 @@ jce extract --legacy
     }
   },
   "auth_preferences": {
-    "preferred_method": "api_token",
+    "preferred_method": "browser",
     "cache_sessions": true,
     "session_timeout_hours": 24
   },
@@ -336,9 +342,19 @@ export JENKINS_EXTRACTOR_CACHE_TTL=86400
 |---------|-------------|-------|
 | `extract` | **Primary extraction method** | `jce extract --jenkins-url URL --jenkins-ip IP` |
 | `setup-auth` | Configure authentication | `jce setup-auth --jenkins-url URL --method METHOD` |
-| `config` | Manage configuration | `jce config SUBCOMMAND` |
-| `benchmark` | Performance testing | `jce benchmark --jenkins-url URL` |
-| `health-check` | System diagnostics | `jce health-check --jenkins-url URL` |
+| `config` | Manage configuration | `jce config --show` |
+| `benchmark` | Performance testing | `jce benchmark --jenkins-url URL --jenkins-ip IP` |
+| `health-check` | System diagnostics | `jce health-check --jenkins-url URL --jenkins-ip IP` |
+| `auth-status` | Check authentication | `jce auth-status --jenkins-url URL` |
+| `clear-cache` | Clear stored sessions | `jce clear-cache --jenkins-url URL` |
+
+### **Project Discovery Commands**
+
+| Command | Description | Usage |
+|---------|-------------|-------|
+| `list-projects` | List Linux Foundation projects | `jce list-projects` |
+| `list-servers` | List Tailscale Jenkins servers | `jce list-servers` |
+| `parse-local` | Parse local credentials file | `jce parse-local credentials.xml` |
 
 ### **Global Options**
 
@@ -347,8 +363,6 @@ export JENKINS_EXTRACTOR_CACHE_TTL=86400
 --version           Show version and exit
 --verbose           Verbose output
 --quiet             Minimal output
---config-dir PATH   Custom configuration directory
---log-level LEVEL   Set logging level (DEBUG, INFO, WARN, ERROR)
 ```
 
 ## 🔧 Troubleshooting
@@ -373,37 +387,44 @@ jce setup-auth --jenkins-url https://jenkins.example.com
 jce health-check --jenkins-url https://jenkins.example.com --verbose
 
 # Benchmark performance
-jce benchmark --jenkins-url https://jenkins.example.com
+jce benchmark --jenkins-url https://jenkins.example.com --jenkins-ip 192.168.1.100
 
-# Check error statistics
-jce config show-errors
+# Check configuration
+jce config --show
 ```
 
 #### **Network Connectivity**
 
 ```bash
 # Test basic connectivity
-jce health-check --jenkins-url https://jenkins.example.com
+jce health-check --jenkins-url https://jenkins.example.com --jenkins-ip 192.168.1.100
 
 # Verbose debugging
-jce extract --verbose --log-level DEBUG
+jce extract --verbose
 ```
+
+### **Permission Requirements**
+
+| Mode | Required Permissions | Performance | User Interaction |
+|------|---------------------|-------------|------------------|
+| **Script Console** | `Hudson/RunScripts` or `Overall/Administer` | 95% faster (2 min vs 45 min) | Fully automated |
+| **Manual Automation** | Basic API token (`Job/Read`, `Overall/Read`) | Standard speed | Manual decryption steps |
 
 ### **Error Codes**
 
 | Code | Description | Solution |
 |------|-------------|----------|
 | AUTH_001 | Invalid API token | Regenerate token in Jenkins |
-| AUTH_002 | OAuth token expired | Run `jce auth-status --refresh` |
+| AUTH_002 | OAuth token expired | Run `jce auth-status --jenkins-url URL` |
 | NET_001 | Connection timeout | Check network/firewall settings |
 | NET_002 | Jenkins server error | Contact Jenkins administrator |
-| RATE_001 | Rate limit exceeded | Reduce `--max-workers` parameter |
+| RATE_001 | Rate limit exceeded | Reduce `--workers` parameter |
 
 ## 🏗️ Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                Enhanced CLI Interface               │
+│                Unified CLI Interface                │
 ├─────────────────────────────────────────────────────┤
 │  extract │ setup-auth │ config │ bench... │
 └─────────────────────────────────────────────────────┘
@@ -420,8 +441,8 @@ jce extract --verbose --log-level DEBUG
 │  └─────────────┘  └─────────────┘  └─────────────┘ │
 │                                                     │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐ │
-│  │Enhanced     │  │Error        │  │Credentials  │ │
-│  │Jenkins      │  │Handling     │  │Parser       │ │
+│  │Jenkins      │  │Error        │  │Credentials  │ │
+│  │Automation   │  │Handling     │  │Parser       │ │
 │  │• Sequential │  │• Circuit    │  │• Extract    │ │
 │  │• Parallel   │  │  Breaker    │  │• Filter     │ │
 │  │• Optimized  │  │• Retry Logic│  │• Decrypt    │ │
@@ -435,13 +456,6 @@ jce extract --verbose --log-level DEBUG
 └─────────────────────────────────────────────────────┘
 ```
 
-## 📚 Documentation
-
-- **[Complete User Guide](USER_GUIDE.md)** - Comprehensive usage documentation
-- **[Implementation Status](IMPLEMENTATION_STATUS.md)** - Technical implementation details
-- **[API Documentation](docs/api.md)** - Developer API reference
-- **[Migration Guide](docs/migration.md)** - Moving from manual processes
-
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
@@ -454,7 +468,7 @@ git clone https://github.com/ModeSevenIndustrialSolutions/jenkins-credential-ext
 cd jenkins-credential-extractor
 
 # Install development dependencies
-pdm install --dev
+pdm install
 
 # Run tests
 pdm run pytest

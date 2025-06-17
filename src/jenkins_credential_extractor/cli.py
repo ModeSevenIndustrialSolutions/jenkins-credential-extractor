@@ -19,8 +19,7 @@ from rich.table import Table
 from jenkins_credential_extractor.credentials import CredentialsParser
 from jenkins_credential_extractor.jenkins import JenkinsAutomation
 
-# Enhanced automation imports
-from jenkins_credential_extractor.enhanced_jenkins import EnhancedJenkinsAutomation
+# Jenkins automation imports
 from jenkins_credential_extractor.projects import (
     PROJECT_MAPPINGS,
     find_project_by_alias,
@@ -46,32 +45,36 @@ console = Console()
 ERROR_DOWNLOAD_FAILED = "[red]❌ Failed to download credentials file[/red]"
 ERROR_PARSE_FAILED = "[red]❌ Failed to parse credentials file[/red]"
 WARNING_NO_CREDENTIALS = "[yellow]⚠️  No credentials were decrypted[/yellow]"
+NOT_SET = "Not set"
 
 
-def _extract_with_enhanced_automation(
+def _extract_with_script_console_automation(
     jenkins_url: str,
     jenkins_ip: str,
     credentials_file: str,
     description_pattern: Optional[str],
     use_batch_optimization: bool,
     output: str,
-) -> bool:
-    """Extract credentials using enhanced automation. Returns True if successful."""
+) -> str:
+    """Extract credentials using script console automation. Returns status: 'success', 'fallback', or 'error'."""
     try:
-        # Initialize enhanced Jenkins automation
-        jenkins = EnhancedJenkinsAutomation(jenkins_url, jenkins_ip)
+        # Initialize Jenkins automation
+        jenkins = JenkinsAutomation(jenkins_url, jenkins_ip)
 
         # Validate Jenkins access and permissions
         if not jenkins.validate_jenkins_access():
-            console.print("[yellow]⚠️  Enhanced automation validation failed[/yellow]")
-            return False
+            console.print(
+                "[yellow]⚠️  Script console automation validation failed[/yellow]"
+            )
+            return "fallback"
 
         # Download credentials file if needed
         if not Path(credentials_file).exists():
-            console.print(f"[blue]Downloading credentials file to {credentials_file}...[/blue]")
-            # Use traditional method for file download
-            traditional_jenkins = JenkinsAutomation(jenkins_url, jenkins_ip)
-            if not traditional_jenkins.download_credentials_file(credentials_file):
+            console.print(
+                f"[blue]Downloading credentials file to {credentials_file}...[/blue]"
+            )
+            # Reuse the same jenkins instance for file download
+            if not jenkins.download_credentials_file(credentials_file):
                 console.print(ERROR_DOWNLOAD_FAILED)
                 raise typer.Exit(1)
 
@@ -83,7 +86,9 @@ def _extract_with_enhanced_automation(
 
         # Extract and decrypt credentials automatically
         if description_pattern:
-            console.print(f"[cyan]Using description pattern: '{description_pattern}'[/cyan]")
+            console.print(
+                f"[cyan]Using description pattern: '{description_pattern}'[/cyan]"
+            )
             decrypted_credentials = parser.extract_and_decrypt_credentials_automated(
                 jenkins, description_pattern, use_batch_optimization
             )
@@ -95,33 +100,42 @@ def _extract_with_enhanced_automation(
             raise typer.Exit(1)
 
         # Save decrypted credentials
-        _save_credentials(decrypted_credentials, output, "Enhanced automation", use_batch_optimization)
-        return True
+        _save_credentials(
+            decrypted_credentials,
+            output,
+            "Script console automation",
+            use_batch_optimization,
+        )
+        return "success"
 
     except ImportError:
-        console.print("[yellow]⚠️  Enhanced automation dependencies missing[/yellow]")
-        return False
+        console.print(
+            "[yellow]⚠️  Script console automation dependencies missing[/yellow]"
+        )
+        return "fallback"
     except Exception as e:
-        console.print(f"[red]❌ Enhanced automation failed: {e}[/red]")
-        return False
+        console.print(f"[red]❌ Script console automation failed: {e}[/red]")
+        return "error"
 
 
-def _extract_with_legacy_automation(
+def _extract_with_manual_automation(
     jenkins_url: str,
     jenkins_ip: str,
     credentials_file: str,
     description_pattern: Optional[str],
     output: str,
 ) -> None:
-    """Extract credentials using legacy automation."""
-    console.print("[yellow]Using legacy automation mode...[/yellow]")
+    """Extract credentials using manual automation."""
+    console.print("[yellow]Using manual automation mode...[/yellow]")
 
-    # Initialize legacy Jenkins automation
+    # Initialize manual Jenkins automation
     jenkins = JenkinsAutomation(jenkins_url, jenkins_ip)
 
     # Test connectivity
     if not jenkins.test_jenkins_connectivity():
-        console.print("[yellow]⚠️  Jenkins server may not be accessible via HTTP[/yellow]")
+        console.print(
+            "[yellow]⚠️  Jenkins server may not be accessible via HTTP[/yellow]"
+        )
         if not Confirm.ask("Continue anyway?"):
             raise typer.Exit(1)
 
@@ -138,8 +152,12 @@ def _extract_with_legacy_automation(
 
     # Extract repository credentials
     if description_pattern:
-        console.print(f"[cyan]Using description pattern: '{description_pattern}'[/cyan]")
-        repo_credentials = parser.extract_credentials_by_description(description_pattern)
+        console.print(
+            f"[cyan]Using description pattern: '{description_pattern}'[/cyan]"
+        )
+        repo_credentials = parser.extract_credentials_by_description(
+            description_pattern
+        )
     else:
         repo_credentials = parser.extract_credentials_by_pattern_choice()
 
@@ -159,7 +177,7 @@ def _extract_with_legacy_automation(
         console.print(
             f"\n[bold green]✅ Successfully extracted {len(decrypted_credentials)} credentials to {output}[/bold green]"
         )
-        console.print("• Mode: Legacy automation")
+        console.print("• Mode: Manual automation")
     else:
         console.print("[red]❌ Failed to save credentials file[/red]")
         raise typer.Exit(1)
@@ -169,7 +187,7 @@ def _save_credentials(
     credentials: List[Tuple[str, str]],
     output: str,
     mode: str,
-    batch_optimization: bool = False
+    batch_optimization: bool = False,
 ) -> None:
     """Save decrypted credentials to file and display summary."""
     try:
@@ -187,7 +205,9 @@ def _save_credentials(
         console.print(f"• Output file: {output}")
         console.print(f"• Mode: {mode}")
         if batch_optimization is not None:
-            console.print(f"• Batch optimization: {'Enabled' if batch_optimization else 'Disabled'}")
+            console.print(
+                f"• Batch optimization: {'Enabled' if batch_optimization else 'Disabled'}"
+            )
 
     except Exception as e:
         console.print(f"[red]❌ Error saving credentials: {e}[/red]")
@@ -211,7 +231,7 @@ def extract(
         5, "--workers", help="Maximum concurrent workers for parallel processing"
     ),
     legacy_mode: bool = typer.Option(
-        False, "--legacy", help="Use legacy automation (for debugging/fallback)"
+        False, "--legacy", help="Use manual automation (for debugging/fallback)"
     ),
 ) -> None:
     """Extract credentials from a Jenkins server."""
@@ -250,18 +270,28 @@ def extract(
     console.print(f"[cyan]Jenkins server: {jenkins_hostname} ({jenkins_ip})[/cyan]")
     console.print(f"[cyan]Jenkins URL: {jenkins_url}[/cyan]")
 
-    # Try enhanced automation first, fall back to legacy if needed
+    # Try script console automation first, fall back to manual if needed
     if not legacy_mode:
-        console.print("[blue]Using enhanced automation...[/blue]")
-        success = _extract_with_enhanced_automation(
-            jenkins_url, jenkins_ip, credentials_file, description_pattern,
-            use_batch_optimization, output
+        console.print("[blue]Using script console automation...[/blue]")
+        result = _extract_with_script_console_automation(
+            jenkins_url,
+            jenkins_ip,
+            credentials_file,
+            description_pattern,
+            use_batch_optimization,
+            output,
         )
-        if success:
+        if result == "success":
             return
+        elif result == "fallback":
+            console.print("[blue]🔄 Switching to manual automation...[/blue]")
+        elif result == "error":
+            console.print(
+                "[red]❌ Script console automation failed, trying manual...[/red]"
+            )
 
-    # Use legacy automation
-    _extract_with_legacy_automation(
+    # Use manual automation
+    _extract_with_manual_automation(
         jenkins_url, jenkins_ip, credentials_file, description_pattern, output
     )
 
@@ -433,12 +463,127 @@ def rebuild_servers() -> None:
     )
 
 
+def _display_auth_method_guidance() -> None:
+    """Display guidance about authentication methods."""
+    console.print("\n[bold]Choose Authentication Method:[/bold]")
+    console.print(
+        "\n[bold green]1. Browser Session Extraction (Recommended)[/bold green]"
+    )
+    console.print("   • Automatically extracts cookies from your browser")
+    console.print("   • Best for automated script console access")
+    console.print("   • Seamless if you're already logged into Jenkins")
+    console.print("   • Supports Chrome, Firefox, Edge, Safari")
+
+    console.print("\n[bold yellow]2. Jenkins API Token (Traditional)[/bold yellow]")
+    console.print("   • Standard Jenkins authentication method")
+    console.print("   • Works for basic credential extraction")
+    console.print("   • Limited script console access (check permissions)")
+    console.print("   • Requires manual token generation")
+
+    console.print("\n[bold blue]3. Google OAuth2 (Enterprise)[/bold blue]")
+    console.print("   • Enterprise SSO integration")
+    console.print("   • Requires Google Cloud configuration")
+    console.print("   • Automatic token refresh")
+    console.print("   • May have limited script console access")
+
+    console.print(
+        "\n[dim]💡 Tip: Script console automation requires script console permissions.[/dim]"
+    )
+    console.print(
+        "[dim]   Without these permissions, the tool falls back to manual decryption.[/dim]"
+    )
+
+
+def _test_script_console_permissions(jenkins_url: str, auth_manager: Any) -> None:
+    """Test script console permissions and provide feedback."""
+    console.print("[dim]🔍 Checking script console permissions...[/dim]")
+    try:
+        from jenkins_credential_extractor.jenkins import JenkinsAutomation
+
+        enhanced = JenkinsAutomation(jenkins_url, "127.0.0.1")
+        enhanced.auth_manager = auth_manager
+        if enhanced.check_script_console_permissions():
+            console.print(
+                "[green]✅ Script console automation available (script console access confirmed)[/green]"
+            )
+        else:
+            console.print(
+                "[yellow]⚠️  Limited automation (will fall back to manual decryption)[/yellow]"
+            )
+            console.print(
+                "[dim]   See PERMISSIONS_GUIDE.md for script console setup[/dim]"
+            )
+    except Exception:
+        console.print("[yellow]⚠️  Could not verify script console permissions[/yellow]")
+
+
+def _setup_browser_auth(auth_manager: Any) -> bool:
+    """Set up browser session authentication."""
+    console.print("\n[bold]Browser Session Extraction[/bold]")
+    console.print("• Attempting automatic cookie extraction...")
+    console.print("• If automatic fails, will prompt for manual cookie entry")
+    console.print("• Ensure you're logged into Jenkins in your browser")
+
+    if auth_manager.authenticate():
+        console.print("[green]✅ Browser session authentication configured[/green]")
+        return True
+    else:
+        console.print("[red]❌ Browser session authentication failed[/red]")
+        console.print(
+            "[yellow]💡 Try logging into Jenkins in your browser first[/yellow]"
+        )
+        return False
+
+
+def _setup_api_token_auth(auth_manager: Any) -> bool:
+    """Set up API token authentication."""
+    console.print("\n[bold]Jenkins API Token Setup[/bold]")
+    console.print("1. Log in to Jenkins")
+    console.print("2. Go to your user profile > Configure")
+    console.print("3. Generate a new API token")
+    console.print("4. Copy the token value")
+    console.print(
+        "\n[yellow]⚠️  Note: API tokens typically have limited script console access[/yellow]"
+    )
+
+    if auth_manager.authenticate():
+        console.print(
+            "[green]✅ API token authentication configured successfully[/green]"
+        )
+        return True
+    else:
+        console.print("[red]❌ API token authentication failed[/red]")
+        return False
+
+
+def _setup_oauth_auth(jenkins_url: str, config_manager: Any) -> bool:
+    """Set up OAuth authentication."""
+    console.print("\n[bold]Google OAuth Setup[/bold]")
+    console.print("[dim]Setting up enterprise SSO authentication...[/dim]")
+    oauth_file = config_manager.setup_google_oauth()
+    if oauth_file:
+        from jenkins_credential_extractor.auth import JenkinsAuthManager
+
+        auth_manager = JenkinsAuthManager(jenkins_url, oauth_file)
+        if auth_manager.authenticate():
+            console.print("[green]✅ Google OAuth configured successfully[/green]")
+            console.print(
+                "[yellow]⚠️  Note: OAuth tokens may have limited script console access[/yellow]"
+            )
+            return True
+        else:
+            console.print("[red]❌ Google OAuth authentication failed[/red]")
+            return False
+    else:
+        console.print("[red]❌ Google OAuth setup failed[/red]")
+        return False
+
 
 @app.command()
 def setup_auth(
     jenkins_url: Optional[str] = typer.Option(None, help="Jenkins URL"),
     auth_method: Optional[str] = typer.Option(
-        None, help="Authentication method: 'api-token', 'oauth', 'browser'"
+        None, help="Authentication method: 'browser', 'api-token', 'oauth'"
     ),
 ) -> None:
     """Set up authentication for automated Jenkins access."""
@@ -446,6 +591,7 @@ def setup_auth(
 
     try:
         from jenkins_credential_extractor.config import JenkinsConfigManager
+        from jenkins_credential_extractor.auth import JenkinsAuthManager
 
         config_manager = JenkinsConfigManager()
 
@@ -457,54 +603,52 @@ def setup_auth(
 
         console.print(f"[cyan]Setting up authentication for: {jenkins_url}[/cyan]")
 
+        # Display authentication guidance if no method specified
+        if not auth_method:
+            _display_auth_method_guidance()
+
+            choice = Prompt.ask(
+                "\nSelect method",
+                choices=["1", "2", "3", "browser", "api-token", "oauth"],
+                default="1",
+            )
+
+            method_map = {
+                "1": "browser",
+                "2": "api-token",
+                "3": "oauth",
+                "browser": "browser",
+                "api-token": "api-token",
+                "oauth": "oauth",
+            }
+            auth_method = method_map.get(choice, "browser")
+
         # Initialize authentication manager
-        from jenkins_credential_extractor.auth import JenkinsAuthManager
-
         auth_manager = JenkinsAuthManager(jenkins_url)
+        success = False
 
-        if auth_method == "api-token" or not auth_method:
-            console.print("\n[bold]Jenkins API Token Setup[/bold]")
-            console.print("1. Log in to Jenkins")
-            console.print("2. Go to your user profile > Configure")
-            console.print("3. Generate a new API token")
-            console.print("4. Copy the token value")
+        if auth_method == "browser":
+            success = _setup_browser_auth(auth_manager)
+            if success:
+                _test_script_console_permissions(jenkins_url, auth_manager)
 
-            if auth_manager.authenticate():
-                console.print(
-                    "[green]✅ API token authentication configured successfully[/green]"
-                )
-            else:
-                console.print("[red]❌ API token authentication failed[/red]")
+        elif auth_method == "api-token":
+            success = _setup_api_token_auth(auth_manager)
+            if success:
+                _test_script_console_permissions(jenkins_url, auth_manager)
 
         elif auth_method == "oauth":
-            console.print("\n[bold]Google OAuth Setup[/bold]")
-            oauth_file = config_manager.setup_google_oauth()
-            if oauth_file:
-                auth_manager = JenkinsAuthManager(jenkins_url, oauth_file)
-                if auth_manager.authenticate():
-                    console.print(
-                        "[green]✅ Google OAuth configured successfully[/green]"
-                    )
-                else:
-                    console.print("[red]❌ Google OAuth authentication failed[/red]")
-            else:
-                console.print("[red]❌ Google OAuth setup failed[/red]")
-
-        elif auth_method == "browser":
-            console.print("\n[bold]Browser Session Setup[/bold]")
-            if auth_manager.authenticate():
-                console.print(
-                    "[green]✅ Browser session authentication configured[/green]"
-                )
-            else:
-                console.print("[red]❌ Browser session authentication failed[/red]")
+            success = _setup_oauth_auth(jenkins_url, config_manager)
 
         else:
             console.print(f"[red]❌ Unknown authentication method: {auth_method}[/red]")
-            console.print("Available methods: api-token, oauth, browser")
+            console.print("Available methods: browser, api-token, oauth")
+
+        if not success:
+            raise typer.Exit(1)
 
     except ImportError as e:
-        console.print(f"[red]❌ Enhanced authentication not available: {e}[/red]")
+        console.print(f"[red]❌ Jenkins automation not available: {e}[/red]")
         console.print("Please ensure all dependencies are installed")
         raise typer.Exit(1)
     except Exception as e:
@@ -593,7 +737,7 @@ def config(
         raise typer.Exit(1)
 
 
-# Enhanced automation commands
+# Jenkins automation commands
 
 
 @app.command()
@@ -615,8 +759,8 @@ def benchmark(
     console.print("[bold blue]🏁 Jenkins Credential Extraction Benchmark[/bold blue]")
 
     try:
-        from jenkins_credential_extractor.enhanced_jenkins import (
-            EnhancedJenkinsAutomation,
+        from jenkins_credential_extractor.jenkins import (
+            JenkinsAutomation,
         )
         from jenkins_credential_extractor.performance import (
             benchmark_automation_methods,
@@ -638,7 +782,7 @@ def benchmark(
         console.print(f"[blue]Testing with {len(test_credentials)} credentials[/blue]")
 
         # Initialize automation
-        automation = EnhancedJenkinsAutomation(jenkins_url, jenkins_ip)
+        automation = JenkinsAutomation(jenkins_url, jenkins_ip)
 
         # Parse methods to test
         methods_to_test = [m.strip() for m in test_methods.split(",")]
@@ -723,19 +867,30 @@ def health_check(
     console.print("[bold blue]🏥 Jenkins Health Check[/bold blue]")
 
     try:
-        from jenkins_credential_extractor.enhanced_jenkins import (
-            EnhancedJenkinsAutomation,
+        from jenkins_credential_extractor.jenkins import (
+            JenkinsAutomation,
         )
 
-        automation = EnhancedJenkinsAutomation(jenkins_url, jenkins_ip, client_secrets)
+        automation = JenkinsAutomation(jenkins_url, jenkins_ip, client_secrets)
 
-        # Test basic connectivity
+        # Test basic connectivity and permissions
         console.print("[blue]🔗 Testing connectivity...[/blue]")
-        if automation.validate_jenkins_access():
+        enhanced_available = automation.validate_jenkins_access()
+
+        if enhanced_available:
             console.print("[green]✅ Jenkins server is accessible[/green]")
+            console.print("[green]✅ Enhanced automation available[/green]")
         else:
-            console.print("[red]❌ Jenkins server is not accessible[/red]")
-            raise typer.Exit(1)
+            # Check if basic connectivity works (without script console permissions)
+            if automation.ensure_authentication():
+                console.print("[green]✅ Jenkins server is accessible[/green]")
+                console.print(
+                    "[yellow]⚠️  Enhanced automation not available (script console permissions required)[/yellow]"
+                )
+                console.print("[green]✅ Legacy automation available[/green]")
+            else:
+                console.print("[red]❌ Jenkins server is not accessible[/red]")
+                raise typer.Exit(1)
 
         # Test authentication
         console.print("[blue]🔐 Testing authentication...[/blue]")

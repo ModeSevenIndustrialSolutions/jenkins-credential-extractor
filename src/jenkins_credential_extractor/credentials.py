@@ -4,7 +4,7 @@
 """Jenkins credentials.xml parser for extracting repository credentials."""
 
 import xml.etree.ElementTree as ET
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING
 
 from rich.console import Console
 from rich.prompt import Prompt
@@ -36,7 +36,7 @@ class CredentialsParser:
     def __init__(self, credentials_file: str) -> None:
         """Initialize with credentials file path."""
         self.credentials_file = credentials_file
-        self.root: Optional[ET.Element] = None
+        self.root: ET.Element | None = None
 
     def parse(self) -> bool:
         """Parse the credentials XML file."""
@@ -59,13 +59,13 @@ class CredentialsParser:
             console.print(f"[red]Unexpected error parsing credentials: {e}[/red]")
             return False
 
-    def extract_nexus_credentials(self) -> List[Tuple[str, str]]:
+    def extract_nexus_credentials(self) -> list[tuple[str, str]]:
         """Extract repository credentials."""
         if self.root is None:
             console.print("[red]No parsed XML available. Call parse() first.[/red]")
             return []
 
-        credentials: List[Tuple[str, str]] = []
+        credentials: list[tuple[str, str]] = []
 
         for cred in self.root.findall(USERNAME_PASSWORD_XPATH):
             credential_tuple = self._extract_single_credential(cred)
@@ -75,7 +75,7 @@ class CredentialsParser:
         console.print(f"[green]Found {len(credentials)} repository credentials[/green]")
         return credentials
 
-    def _extract_single_credential(self, cred: ET.Element) -> Optional[Tuple[str, str]]:
+    def _extract_single_credential(self, cred: ET.Element) -> tuple[str, str] | None:
         """Extract a single credential from an XML element."""
         username_elem = cred.find("username")
         password_elem = cred.find("password")
@@ -101,7 +101,7 @@ class CredentialsParser:
         """Determine if this credential is for a repository."""
         return cred_id not in SYSTEM_CREDENTIAL_IDS and username not in SYSTEM_USERNAMES
 
-    def get_credential_by_id(self, cred_id: str) -> Optional[Tuple[str, str]]:
+    def get_credential_by_id(self, cred_id: str) -> tuple[str, str] | None:
         """Get a specific credential by ID."""
         if self.root is None:
             return None
@@ -113,7 +113,7 @@ class CredentialsParser:
 
         return None
 
-    def _extract_credential_data(self, cred: ET.Element) -> Optional[Tuple[str, str]]:
+    def _extract_credential_data(self, cred: ET.Element) -> tuple[str, str] | None:
         """Extract username and password from credential element."""
         username_elem = cred.find("username")
         password_elem = cred.find("password")
@@ -130,15 +130,15 @@ class CredentialsParser:
 
         return None
 
-    def list_all_credentials(self) -> List[Dict[str, str]]:
+    def list_all_credentials(self) -> list[dict[str, str]]:
         """List all credentials with their metadata."""
         if self.root is None:
             return []
 
-        all_creds: List[Dict[str, str]] = []
+        all_creds: list[dict[str, str]] = []
 
         for cred in self.root.findall(USERNAME_PASSWORD_XPATH):
-            cred_info: Dict[str, str] = {}
+            cred_info: dict[str, str] = {}
 
             for field in ["id", "description", "username"]:
                 elem = cred.find(field)
@@ -151,13 +151,13 @@ class CredentialsParser:
 
     def extract_credentials_by_description(
         self, description_pattern: str
-    ) -> List[Tuple[str, str]]:
+    ) -> list[tuple[str, str]]:
         """Extract credentials that match a description pattern."""
         if self.root is None:
             console.print("[red]No parsed XML available. Call parse() first.[/red]")
             return []
 
-        credentials: List[Tuple[str, str]] = []
+        credentials: list[tuple[str, str]] = []
         pattern_lower = description_pattern.lower()
 
         for cred in self.root.findall(USERNAME_PASSWORD_XPATH):
@@ -174,7 +174,7 @@ class CredentialsParser:
         )
         return credentials
 
-    def get_unique_description_patterns(self) -> List[str]:
+    def get_unique_description_patterns(self) -> list[str]:
         """Get unique description patterns to help user choose what to extract."""
         if self.root is None:
             return []
@@ -187,7 +187,7 @@ class CredentialsParser:
 
         return sorted(list(descriptions))
 
-    def extract_credentials_by_pattern_choice(self) -> List[Tuple[str, str]]:
+    def extract_credentials_by_pattern_choice(self) -> list[tuple[str, str]]:
         """Interactive method to let user choose description pattern."""
         patterns = self.get_unique_description_patterns()
 
@@ -240,9 +240,9 @@ class CredentialsParser:
     def extract_and_decrypt_credentials_automated(
         self,
         jenkins_automation: "JenkinsAutomation",
-        description_pattern: Optional[str] = None,
+        description_pattern: str | None = None,
         use_batch_optimization: bool = True,
-    ) -> List[Tuple[str, str]]:
+    ) -> list[tuple[str, str]]:
         """Extract and automatically decrypt credentials using enhanced automation."""
         # Extract encrypted credentials
         if description_pattern:
@@ -278,7 +278,7 @@ class CredentialsParser:
 
     def interactive_automated_extraction(
         self, jenkins_automation
-    ) -> List[Tuple[str, str]]:
+    ) -> list[tuple[str, str]]:
         """Interactive method with automated decryption support."""
         patterns = self.get_unique_description_patterns()
 

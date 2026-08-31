@@ -3,19 +3,22 @@
 
 """Tests for Jenkins automation functionality."""
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
-import requests
-import sys
 import os
+import sys
+from unittest.mock import Mock, patch
+
+import pytest
+import requests
 
 # Add the src directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from jenkins_credential_extractor.jenkins import JenkinsAutomation
 from jenkins_credential_extractor.auth import JenkinsAuthManager
-from jenkins_credential_extractor.config import JenkinsConfigManager
-from jenkins_credential_extractor.error_handling import AuthenticationError, NetworkError
+from jenkins_credential_extractor.error_handling import (
+    AuthenticationError,
+    NetworkError,
+)
+from jenkins_credential_extractor.jenkins import JenkinsAutomation
 
 
 class TestJenkinsAutomation:
@@ -158,7 +161,7 @@ class TestJenkinsAutomation:
         mock_session = Mock()
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.text = '<h2>Result</h2><pre>decrypted_password</pre>'
+        mock_response.text = "<h2>Result</h2><pre>decrypted_password</pre>"
         mock_session.post.return_value = mock_response
         mock_session.get.return_value = mock_response
 
@@ -200,24 +203,32 @@ class TestJenkinsAutomation:
         assert result == credentials
 
     @patch("jenkins_credential_extractor.jenkins.console")
-    def test_batch_decrypt_passwords_intelligently_large_batch(self, mock_console, automation):
+    def test_batch_decrypt_passwords_intelligently_large_batch(
+        self, mock_console, automation
+    ):
         """Test intelligent batch processing for large credential sets."""
         # Create a large set of credentials (100+)
         credentials = [("user" + str(i), "pass" + str(i)) for i in range(100)]
         expected_result = [("user" + str(i), "decrypted" + str(i)) for i in range(100)]
 
         # Mock the optimized batch method
-        automation.batch_decrypt_passwords_optimized = Mock(return_value=expected_result)
+        automation.batch_decrypt_passwords_optimized = Mock(
+            return_value=expected_result
+        )
         automation.ensure_authentication = Mock(return_value=True)
 
         result = automation.batch_decrypt_passwords_intelligently(credentials)
 
         # Should use optimized method for large batches
-        automation.batch_decrypt_passwords_optimized.assert_called_once_with(credentials)
+        automation.batch_decrypt_passwords_optimized.assert_called_once_with(
+            credentials
+        )
         assert result == expected_result
 
     @patch("jenkins_credential_extractor.jenkins.console")
-    def test_batch_decrypt_passwords_intelligently_medium_batch(self, mock_console, automation):
+    def test_batch_decrypt_passwords_intelligently_medium_batch(
+        self, mock_console, automation
+    ):
         """Test intelligent batch processing for medium credential sets."""
         # Create a medium set of credentials (25)
         credentials = [("user" + str(i), "pass" + str(i)) for i in range(25)]
@@ -283,7 +294,7 @@ class TestJenkinsAutomation:
 
     def test_csrf_token_extraction_none(self, automation):
         """Test CSRF token extraction when none found."""
-        html_without_token = '<html><body>No token here</body></html>'
+        html_without_token = "<html><body>No token here</body></html>"
         automation.session = Mock()
         mock_response = Mock()
         mock_response.status_code = 200
@@ -295,7 +306,7 @@ class TestJenkinsAutomation:
 
     def test_script_result_extraction(self, automation):
         """Test script execution result extraction."""
-        html_with_result = '<h2>Result</h2><pre>test_result_value</pre>'
+        html_with_result = "<h2>Result</h2><pre>test_result_value</pre>"
 
         result = automation._extract_script_result(html_with_result)
         assert result == "test_result_value"
@@ -309,7 +320,7 @@ class TestJenkinsAutomation:
 
     def test_script_result_extraction_none(self, automation):
         """Test script result extraction when none found."""
-        html_without_result = '<html><body>No result here</body></html>'
+        html_without_result = "<html><body>No result here</body></html>"
 
         result = automation._extract_script_result(html_without_result)
         assert result is None
@@ -352,7 +363,10 @@ class TestJenkinsAutomation:
         mock_session = Mock()
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"mode": "NORMAL", "nodeDescription": "Test Jenkins"}
+        mock_response.json.return_value = {
+            "mode": "NORMAL",
+            "nodeDescription": "Test Jenkins",
+        }
         mock_session.get.return_value = mock_response
 
         automation.session = mock_session
@@ -383,8 +397,7 @@ class TestJenkinsAutomationIntegration:
     def automation_with_auth(self):
         """Create automation instance with mocked authentication."""
         automation = JenkinsAutomation(
-            jenkins_url="https://jenkins.example.com",
-            jenkins_ip="192.168.1.100"
+            jenkins_url="https://jenkins.example.com", jenkins_ip="192.168.1.100"
         )
 
         # Mock the auth manager
@@ -400,7 +413,7 @@ class TestJenkinsAutomationIntegration:
         mock_session = Mock()
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.text = '<h2>Result</h2><pre>decrypted_password</pre>'
+        mock_response.text = "<h2>Result</h2><pre>decrypted_password</pre>"
         mock_session.post.return_value = mock_response
         mock_session.get.return_value = mock_response
 
@@ -416,7 +429,9 @@ class TestJenkinsAutomationIntegration:
         # The automation should use the auth manager's session, not create its own
 
         mock_session = Mock()
-        automation_with_auth.auth_manager.get_authenticated_session.return_value = mock_session
+        automation_with_auth.auth_manager.get_authenticated_session.return_value = (
+            mock_session
+        )
 
         # When ensuring authentication, it should use the auth manager's session
         result = automation_with_auth.ensure_authentication()
@@ -439,7 +454,9 @@ class TestJenkinsAutomationErrorHandling:
     def test_network_error_handling(self, automation):
         """Test network error handling during decryption."""
         mock_session = Mock()
-        mock_session.post.side_effect = requests.exceptions.RequestException("Network error")
+        mock_session.post.side_effect = requests.exceptions.RequestException(
+            "Network error"
+        )
 
         automation.session = mock_session
         automation.auth_manager = Mock()

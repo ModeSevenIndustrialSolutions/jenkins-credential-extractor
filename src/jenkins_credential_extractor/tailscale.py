@@ -5,10 +5,9 @@
 
 import platform
 import re
-import requests
 import subprocess
-from typing import Dict, List, Optional, Set, Tuple
 
+import requests
 from rich.console import Console
 
 console = Console()
@@ -16,8 +15,6 @@ console = Console()
 
 class TailscaleError(Exception):
     """Custom exception for Tailscale-related errors."""
-
-    pass
 
 
 def get_tailscale_command() -> str:
@@ -66,11 +63,11 @@ def check_tailscale_status() -> bool:
 
 
 def _filter_to_production_servers(
-    servers: List[Tuple[str, str]],
-) -> List[Tuple[str, str]]:
+    servers: list[tuple[str, str]],
+) -> list[tuple[str, str]]:
     """Filter to production servers, preferring lowest numbered servers."""
     # Group servers by project
-    project_servers: Dict[str, List[Tuple[str, str]]] = {}
+    project_servers: dict[str, list[tuple[str, str]]] = {}
 
     for ip, hostname in servers:
         project = extract_project_from_hostname(hostname)
@@ -80,7 +77,7 @@ def _filter_to_production_servers(
             project_servers[project].append((ip, hostname))
 
     # Select best server for each project
-    filtered_servers: List[Tuple[str, str]] = []
+    filtered_servers: list[tuple[str, str]] = []
 
     for project, server_list in project_servers.items():
         # First try to find explicit production servers
@@ -100,7 +97,7 @@ def _filter_to_production_servers(
     return filtered_servers
 
 
-def _get_lowest_numbered_server(servers: List[Tuple[str, str]]) -> Tuple[str, str]:
+def _get_lowest_numbered_server(servers: list[tuple[str, str]]) -> tuple[str, str]:
     """Get the lowest numbered server from a list."""
     import re
 
@@ -114,7 +111,7 @@ def _get_lowest_numbered_server(servers: List[Tuple[str, str]]) -> Tuple[str, st
     return sorted_servers[0]
 
 
-def get_jenkins_servers() -> List[Tuple[str, str]]:
+def get_jenkins_servers() -> list[tuple[str, str]]:
     """Get list of Jenkins servers from Tailscale network, filtering out sandbox servers."""
     try:
         tailscale_cmd = get_tailscale_command()
@@ -125,7 +122,7 @@ def get_jenkins_servers() -> List[Tuple[str, str]]:
         if result.returncode != 0:
             raise TailscaleError(f"Failed to get Tailscale status: {result.stderr}")
 
-        jenkins_servers: List[Tuple[str, str]] = []
+        jenkins_servers: list[tuple[str, str]] = []
         for line in result.stdout.split("\n"):
             if "jenkins" in line.lower():
                 # Parse line format: IP    hostname tags...
@@ -146,11 +143,11 @@ def get_jenkins_servers() -> List[Tuple[str, str]]:
 
 
 def _filter_to_production_servers_with_status(
-    servers: List[Tuple[str, str, str]],
-) -> List[Tuple[str, str, str]]:
+    servers: list[tuple[str, str, str]],
+) -> list[tuple[str, str, str]]:
     """Filter to production servers with status, preferring lowest numbered servers."""
     # Group servers by project
-    project_servers: Dict[str, List[Tuple[str, str, str]]] = {}
+    project_servers: dict[str, list[tuple[str, str, str]]] = {}
 
     for ip, hostname, status in servers:
         project = extract_project_from_hostname(hostname)
@@ -160,7 +157,7 @@ def _filter_to_production_servers_with_status(
             project_servers[project].append((ip, hostname, status))
 
     # Select best server for each project
-    filtered_servers: List[Tuple[str, str, str]] = []
+    filtered_servers: list[tuple[str, str, str]] = []
 
     for project, server_list in project_servers.items():
         # First try to find explicit production servers
@@ -183,8 +180,8 @@ def _filter_to_production_servers_with_status(
 
 
 def _get_lowest_numbered_server_with_status(
-    servers: List[Tuple[str, str, str]],
-) -> Tuple[str, str, str]:
+    servers: list[tuple[str, str, str]],
+) -> tuple[str, str, str]:
     """Get the lowest numbered server with status from a list."""
     import re
 
@@ -198,7 +195,7 @@ def _get_lowest_numbered_server_with_status(
     return sorted_servers[0]
 
 
-def get_all_jenkins_servers_with_status() -> List[Tuple[str, str, str]]:
+def get_all_jenkins_servers_with_status() -> list[tuple[str, str, str]]:
     """Get list of all Jenkins servers from Tailscale network with status, filtering sandbox servers."""
     try:
         tailscale_cmd = get_tailscale_command()
@@ -209,7 +206,7 @@ def get_all_jenkins_servers_with_status() -> List[Tuple[str, str, str]]:
         if result.returncode != 0:
             raise TailscaleError(f"Failed to get Tailscale status: {result.stderr}")
 
-        jenkins_servers: List[Tuple[str, str, str]] = []
+        jenkins_servers: list[tuple[str, str, str]] = []
         for line in result.stdout.split("\n"):
             if "jenkins" in line.lower():
                 parts = line.split()
@@ -229,14 +226,14 @@ def get_all_jenkins_servers_with_status() -> List[Tuple[str, str, str]]:
         raise TailscaleError(f"Error getting Jenkins servers: {e}")
 
 
-def _extract_status_from_line(parts: List[str]) -> str:
+def _extract_status_from_line(parts: list[str]) -> str:
     """Extract status from tailscale status line parts."""
     if len(parts) > 2 and parts[-1] in ["offline", "online", "-"]:
         return "online" if parts[-1] == "-" else parts[-1]
     return "online"
 
 
-def extract_project_from_hostname(hostname: str) -> Optional[str]:
+def extract_project_from_hostname(hostname: str) -> str | None:
     """Extract project identifier from Jenkins hostname."""
     hostname_lower = hostname.lower()
 
@@ -263,7 +260,7 @@ def extract_project_from_hostname(hostname: str) -> Optional[str]:
 
 def get_enhanced_jenkins_server_for_project(
     project_key: str,
-) -> Optional[Tuple[str, str]]:
+) -> tuple[str, str] | None:
     """Get the Jenkins server for a project with enhanced matching."""
     jenkins_servers = get_jenkins_servers()
 
@@ -282,8 +279,8 @@ def get_enhanced_jenkins_server_for_project(
 
 
 def _find_production_server(
-    servers: List[Tuple[str, str]], project_key: str
-) -> Optional[Tuple[str, str]]:
+    servers: list[tuple[str, str]], project_key: str
+) -> tuple[str, str] | None:
     """Find production server for project."""
     for ip, hostname in servers:
         extracted_project = extract_project_from_hostname(hostname)
@@ -293,8 +290,8 @@ def _find_production_server(
 
 
 def _find_any_project_server(
-    servers: List[Tuple[str, str]], project_key: str
-) -> Optional[Tuple[str, str]]:
+    servers: list[tuple[str, str]], project_key: str
+) -> tuple[str, str] | None:
     """Find any server for project."""
     for ip, hostname in servers:
         extracted_project = extract_project_from_hostname(hostname)
@@ -304,8 +301,8 @@ def _find_any_project_server(
 
 
 def _find_fallback_server(
-    servers: List[Tuple[str, str]], project_key: str
-) -> Optional[Tuple[str, str]]:
+    servers: list[tuple[str, str]], project_key: str
+) -> tuple[str, str] | None:
     """Fallback server matching."""
     for ip, hostname in servers:
         if project_key.lower() in hostname.lower():
@@ -313,7 +310,7 @@ def _find_fallback_server(
     return None
 
 
-def parse_lf_inventory() -> Dict[str, Set[str]]:
+def parse_lf_inventory() -> dict[str, set[str]]:
     """Parse Linux Foundation infrastructure inventory for Jenkins servers."""
     inventory_url = (
         "https://docs.releng.linuxfoundation.org/en/latest/infra/inventory.html"
@@ -326,7 +323,7 @@ def parse_lf_inventory() -> Dict[str, Set[str]]:
             jenkins_pattern = r"(\w+)-jenkins(?:-\w+)?(?:-\d+)?"
             jenkins_matches = re.findall(jenkins_pattern, content, re.IGNORECASE)
 
-            project_servers: Dict[str, Set[str]] = {}
+            project_servers: dict[str, set[str]] = {}
             for match in jenkins_matches:
                 project = match.lower()
                 if project not in project_servers:
@@ -341,17 +338,17 @@ def parse_lf_inventory() -> Dict[str, Set[str]]:
     return {}
 
 
-def get_jenkins_server_for_project(project_key: str) -> Optional[Tuple[str, str]]:
+def get_jenkins_server_for_project(project_key: str) -> tuple[str, str] | None:
     """Get the Jenkins server IP and hostname for a specific project."""
     return get_enhanced_jenkins_server_for_project(project_key)
 
 
-def rebuild_server_list() -> Dict[str, List[str]]:
+def rebuild_server_list() -> dict[str, list[str]]:
     """Rebuild the comprehensive server list from all sources."""
     console.print("[blue]Rebuilding server list from all sources...[/blue]")
 
     # Get servers from Tailscale
-    tailscale_servers: Dict[str, List[str]] = {}
+    tailscale_servers: dict[str, list[str]] = {}
     try:
         servers = get_all_jenkins_servers_with_status()
         for ip, hostname, status in servers:
@@ -376,7 +373,7 @@ def rebuild_server_list() -> Dict[str, List[str]]:
         )
 
     # Combine results
-    all_servers: Dict[str, List[str]] = {}
+    all_servers: dict[str, list[str]] = {}
 
     # Add Tailscale servers
     for project, server_list in tailscale_servers.items():
@@ -417,7 +414,7 @@ def display_compact_jenkins_servers() -> None:
         )
 
         # Sort servers by project name for better organization
-        all_server_data: List[Tuple[str, str, str, str]] = []
+        all_server_data: list[tuple[str, str, str, str]] = []
         for ip, hostname, status in servers:
             project = extract_project_from_hostname(hostname)
             project_display = project.upper() if project else "OTHER"

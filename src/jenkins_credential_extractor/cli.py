@@ -4,7 +4,7 @@
 """Main CLI application for Jenkins Credential Extractor."""
 
 from pathlib import Path
-from typing import Any, List, Optional, Tuple
+from typing import Any
 
 import typer
 
@@ -52,7 +52,7 @@ def _extract_with_script_console_automation(
     jenkins_url: str,
     jenkins_ip: str,
     credentials_file: str,
-    description_pattern: Optional[str],
+    description_pattern: str | None,
     use_batch_optimization: bool,
     output: str,
 ) -> str:
@@ -122,7 +122,7 @@ def _extract_with_manual_automation(
     jenkins_url: str,
     jenkins_ip: str,
     credentials_file: str,
-    description_pattern: Optional[str],
+    description_pattern: str | None,
     output: str,
 ) -> None:
     """Extract credentials using manual automation."""
@@ -184,7 +184,7 @@ def _extract_with_manual_automation(
 
 
 def _save_credentials(
-    credentials: List[Tuple[str, str]],
+    credentials: list[tuple[str, str]],
     output: str,
     mode: str,
     batch_optimization: bool = False,
@@ -192,8 +192,9 @@ def _save_credentials(
     """Save decrypted credentials to file and display summary."""
     try:
         with open(output, "w", encoding="utf-8") as f:
-            for username, password in credentials:
-                f.write(f"{password} {username}\n")
+            f.writelines(
+                f"{password} {username}\n" for username, password in credentials
+            )
 
         console.print(
             f"[green]✅ Saved {len(credentials)} decrypted credentials to {output}[/green]"
@@ -216,12 +217,12 @@ def _save_credentials(
 
 @app.command()
 def extract(
-    project: Optional[str] = typer.Argument(None, help="Project name (optional)"),
+    project: str | None = typer.Argument(None, help="Project name (optional)"),
     output: str = typer.Option("credentials.txt", help="Output file for credentials"),
     credentials_file: str = typer.Option(
         "credentials.xml", help="Local credentials file path"
     ),
-    description_pattern: Optional[str] = typer.Option(
+    description_pattern: str | None = typer.Option(
         None, "--pattern", help="Description pattern to filter credentials"
     ),
     use_batch_optimization: bool = typer.Option(
@@ -342,7 +343,7 @@ def parse_local(
         ..., help="Path to local credentials.xml file"
     ),
     output: str = typer.Option("credentials.txt", help="Output file for credentials"),
-    description_pattern: Optional[str] = typer.Option(
+    description_pattern: str | None = typer.Option(
         None, "--pattern", help="Description pattern to filter credentials"
     ),
 ) -> None:
@@ -581,8 +582,8 @@ def _setup_oauth_auth(jenkins_url: str, config_manager: Any) -> bool:
 
 @app.command()
 def setup_auth(
-    jenkins_url: Optional[str] = typer.Option(None, help="Jenkins URL"),
-    auth_method: Optional[str] = typer.Option(
+    jenkins_url: str | None = typer.Option(None, help="Jenkins URL"),
+    auth_method: str | None = typer.Option(
         None, help="Authentication method: 'browser', 'api-token', 'oauth'"
     ),
 ) -> None:
@@ -590,8 +591,8 @@ def setup_auth(
     console.print("[bold blue]🔧 Authentication Setup[/bold blue]\n")
 
     try:
-        from jenkins_credential_extractor.config import JenkinsConfigManager
         from jenkins_credential_extractor.auth import JenkinsAuthManager
+        from jenkins_credential_extractor.config import JenkinsConfigManager
 
         config_manager = JenkinsConfigManager()
 
@@ -751,9 +752,7 @@ def benchmark(
     credentials_file: str = typer.Option(
         "credentials.xml", help="Credentials file path"
     ),
-    output_report: Optional[str] = typer.Option(
-        None, help="Output benchmark report file"
-    ),
+    output_report: str | None = typer.Option(None, help="Output benchmark report file"),
 ) -> None:
     """Benchmark different credential extraction methods."""
     console.print("[bold blue]🏁 Jenkins Credential Extraction Benchmark[/bold blue]")
@@ -858,9 +857,7 @@ def benchmark(
 def health_check(
     jenkins_url: str = typer.Option(..., help="Jenkins server URL"),
     jenkins_ip: str = typer.Option(..., help="Jenkins server IP"),
-    client_secrets: Optional[str] = typer.Option(
-        None, help="OAuth client secrets file"
-    ),
+    client_secrets: str | None = typer.Option(None, help="OAuth client secrets file"),
     verbose: bool = typer.Option(False, help="Verbose output"),
 ) -> None:
     """Check Jenkins server health and connectivity."""
@@ -993,7 +990,7 @@ def auth_status(
 
 @app.command()
 def clear_cache(
-    jenkins_url: Optional[str] = typer.Option(
+    jenkins_url: str | None = typer.Option(
         None, help="Jenkins server URL (clears all if not specified)"
     ),
     confirm: bool = typer.Option(False, "--yes", help="Skip confirmation prompt"),
@@ -1039,7 +1036,7 @@ def clear_cache(
         raise typer.Exit(1)
 
 
-def select_project() -> Optional[str]:
+def select_project() -> str | None:
     """Interactive project selection with fuzzy matching."""
     projects = get_projects_with_jenkins()
 
@@ -1075,9 +1072,7 @@ def select_project() -> Optional[str]:
         console.print("[red]Invalid selection. Please try again.[/red]")
 
 
-def _try_numeric_selection(
-    choice: str, projects: List[Tuple[str, Any]]
-) -> Optional[str]:
+def _try_numeric_selection(choice: str, projects: list[tuple[str, Any]]) -> str | None:
     """Try to parse choice as a number and return corresponding project."""
     try:
         index = int(choice) - 1
@@ -1088,7 +1083,7 @@ def _try_numeric_selection(
     return None
 
 
-def _try_fuzzy_matching(choice: str, projects: List[Tuple[str, Any]]) -> Optional[str]:
+def _try_fuzzy_matching(choice: str, projects: list[tuple[str, Any]]) -> str | None:
     """Try fuzzy matching against project names and aliases."""
     if not fuzz:
         return None

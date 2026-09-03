@@ -6,7 +6,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Dict, Optional, Any
+from typing import Any
 
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
@@ -35,7 +35,7 @@ class JenkinsConfigManager:
 
         return {}
 
-    def save_config(self, config: Dict) -> None:
+    def save_config(self, config: dict) -> None:
         """Save configuration to file."""
         try:
             with open(self.config_file, "w") as f:
@@ -44,7 +44,7 @@ class JenkinsConfigManager:
         except Exception as e:
             console.print(f"[red]Could not save config: {e}[/red]")
 
-    def setup_google_oauth(self) -> Optional[str]:
+    def setup_google_oauth(self) -> str | None:
         """Guide user through Google OAuth setup."""
         console.print("\n[bold]Google OAuth Setup[/bold]")
         console.print("To enable Google OAuth authentication, you need to:")

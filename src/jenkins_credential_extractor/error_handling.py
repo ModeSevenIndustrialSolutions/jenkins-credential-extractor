@@ -3,10 +3,12 @@
 
 """Error handling and retry mechanisms for Jenkins automation."""
 
-import time
 import random
-from typing import Any, Callable, Optional, Type, Dict, TypeVar
+import time
+from collections.abc import Callable
 from functools import wraps
+from typing import Any, TypeVar
+
 import requests
 from rich.console import Console
 
@@ -18,31 +20,21 @@ T = TypeVar("T")
 class JenkinsError(Exception):
     """Base exception for Jenkins-related errors."""
 
-    pass
-
 
 class AuthenticationError(JenkinsError):
     """Raised when authentication fails."""
-
-    pass
 
 
 class NetworkError(JenkinsError):
     """Raised when network operations fail."""
 
-    pass
-
 
 class ScriptExecutionError(JenkinsError):
     """Raised when Jenkins script execution fails."""
 
-    pass
-
 
 class ConfigurationError(JenkinsError):
     """Raised when configuration is invalid."""
-
-    pass
 
 
 class RetryConfig:
@@ -84,9 +76,9 @@ def calculate_retry_delay(attempt: int, config: RetryConfig) -> float:
 
 
 def retry_with_backoff(
-    retry_config: Optional[RetryConfig] = None,
+    retry_config: RetryConfig | None = None,
     exceptions: tuple = (requests.RequestException, NetworkError),
-    on_retry: Optional[Callable[[int, Exception], None]] = None,
+    on_retry: Callable[[int, Exception], None] | None = None,
 ):
     """Decorator for retrying function calls with exponential backoff."""
     if retry_config is None:
@@ -139,7 +131,7 @@ class CircuitBreaker:
         self,
         failure_threshold: int = 5,
         timeout: float = 60.0,
-        expected_exception: Type[Exception] = Exception,
+        expected_exception: type[Exception] = Exception,
     ):
         self.failure_threshold = failure_threshold
         self.timeout = timeout
@@ -181,9 +173,9 @@ class ErrorRecoveryManager:
     """Manages error recovery strategies for Jenkins operations."""
 
     def __init__(self):
-        self.circuit_breakers: Dict[str, CircuitBreaker] = {}
-        self.error_counts: Dict[str, int] = {}
-        self.last_errors: Dict[str, Dict[str, Any]] = {}
+        self.circuit_breakers: dict[str, CircuitBreaker] = {}
+        self.error_counts: dict[str, int] = {}
+        self.last_errors: dict[str, dict[str, Any]] = {}
 
     def get_circuit_breaker(self, operation: str) -> CircuitBreaker:
         """Get or create circuit breaker for an operation."""
@@ -341,7 +333,7 @@ def safe_execute_with_recovery(
     operation: str,
     func: Callable,
     *args,
-    recovery_manager: Optional[ErrorRecoveryManager] = None,
+    recovery_manager: ErrorRecoveryManager | None = None,
     **kwargs,
 ) -> Any:
     """Safely execute a function with comprehensive error recovery."""

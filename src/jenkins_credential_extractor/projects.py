@@ -3,7 +3,7 @@
 
 """Linux Foundation project mapping and aliases."""
 
-from typing import Dict, List, Optional, Tuple, TypedDict
+from typing import TypedDict
 
 
 class ProjectInfo(TypedDict):
@@ -11,13 +11,13 @@ class ProjectInfo(TypedDict):
 
     name: str
     full_name: str
-    jenkins_url: Optional[str]
-    aliases: List[str]
+    jenkins_url: str | None
+    aliases: list[str]
     has_jenkins: bool
 
 
 # Project mappings with aliases and variations
-PROJECT_MAPPINGS: Dict[str, ProjectInfo] = {
+PROJECT_MAPPINGS: dict[str, ProjectInfo] = {
     "agl": {
         "name": "AGL",
         "full_name": "Automotive Grade Linux",
@@ -112,7 +112,7 @@ PROJECT_MAPPINGS: Dict[str, ProjectInfo] = {
 }
 
 # Additional project information for fuzzy matching
-PROJECT_DESCRIPTIONS: Dict[str, str] = {
+PROJECT_DESCRIPTIONS: dict[str, str] = {
     "agl": "Automotive Grade Linux (AGL) is an open source project that provides a framework for automotive infotainment systems.",
     "akraino": "Akraino Edge Stack is an open source software stack that supports high-availability cloud services optimized for edge computing systems.",
     "anuket": "Anuket (formerly OPNFV) develops and maintains a unified testing framework for Network Function Virtualization (NFV) infrastructure.",
@@ -124,7 +124,7 @@ PROJECT_DESCRIPTIONS: Dict[str, str] = {
 }
 
 
-def get_projects_with_jenkins() -> List[Tuple[str, ProjectInfo]]:
+def get_projects_with_jenkins() -> list[tuple[str, ProjectInfo]]:
     """Return list of projects that have Jenkins servers."""
     return [
         (key, project)
@@ -133,7 +133,7 @@ def get_projects_with_jenkins() -> List[Tuple[str, ProjectInfo]]:
     ]
 
 
-def find_project_by_alias(search_term: str) -> Optional[str]:
+def find_project_by_alias(search_term: str) -> str | None:
     """Find a project key by searching through aliases and names."""
     search_term_lower = search_term.lower().replace("-", "").replace("_", "")
 
@@ -157,6 +157,6 @@ def find_project_by_alias(search_term: str) -> Optional[str]:
     return None
 
 
-def get_jenkins_projects() -> List[str]:
+def get_jenkins_projects() -> list[str]:
     """Get list of project keys that have Jenkins servers."""
     return [key for key, project in PROJECT_MAPPINGS.items() if project["has_jenkins"]]

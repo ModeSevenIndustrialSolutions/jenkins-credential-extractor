@@ -6,7 +6,7 @@
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Any
 from urllib.parse import urljoin
 
 import requests
@@ -15,8 +15,8 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from .auth import JenkinsAuthManager
 from .error_handling import (
-    NetworkError,
     AuthenticationError,
+    NetworkError,
     ScriptExecutionError,
     default_rate_limiter,
     validate_jenkins_response,
@@ -32,8 +32,8 @@ class JenkinsAutomation:
         self,
         jenkins_url: str,
         jenkins_ip: str,
-        client_secrets_file: Optional[str] = None,
-        auth_manager: Optional[JenkinsAuthManager] = None,
+        client_secrets_file: str | None = None,
+        auth_manager: JenkinsAuthManager | None = None,
     ):
         """Initialize Jenkins automation."""
         self.jenkins_url = jenkins_url
@@ -46,7 +46,7 @@ class JenkinsAutomation:
             self.auth_manager = JenkinsAuthManager(jenkins_url, client_secrets_file)
 
         self.script_console_url = urljoin(jenkins_url, "/manage/script")
-        self.session: Optional[requests.Session] = None
+        self.session: requests.Session | None = None
 
     def ensure_authentication(self) -> bool:
         """Ensure we have valid authentication."""
@@ -62,7 +62,7 @@ class JenkinsAutomation:
 
         return True
 
-    def _get_csrf_token(self) -> Optional[str]:
+    def _get_csrf_token(self) -> str | None:
         """Get CSRF token from Jenkins."""
         try:
             if not self.session:
@@ -90,7 +90,7 @@ class JenkinsAutomation:
 
     def _decrypt_password_with_retry(
         self, encrypted_password: str, max_retries: int = 3
-    ) -> Optional[str]:
+    ) -> str | None:
         """Internal method to decrypt password with comprehensive retry logic."""
         if not self.ensure_authentication():
             raise AuthenticationError("Failed to authenticate with Jenkins")
@@ -111,7 +111,7 @@ println(passwd)
 
                 # Prepare request data
                 data = {"script": script, "Submit": "Run"}
-                headers: Dict[str, str] = {}
+                headers: dict[str, str] = {}
 
                 if csrf_token:
                     headers["Jenkins-Crumb"] = csrf_token
@@ -184,7 +184,7 @@ println(passwd)
 
         return None
 
-    def _extract_script_result(self, response_text: str) -> Optional[str]:
+    def _extract_script_result(self, response_text: str) -> str | None:
         """Extract script execution result from Jenkins response."""
         # Try primary result extraction
         result_match = re.search(
@@ -214,13 +214,13 @@ println(passwd)
 
     def decrypt_single_password(
         self, encrypted_password: str, max_retries: int = 3
-    ) -> Optional[str]:
+    ) -> str | None:
         """Decrypt a single password with retry logic and proper error handling."""
         return self._decrypt_password_with_retry(encrypted_password, max_retries)
 
     def batch_decrypt_passwords_parallel(
-        self, credentials: List[Tuple[str, str]], max_workers: Optional[int] = None
-    ) -> List[Tuple[str, str]]:
+        self, credentials: list[tuple[str, str]], max_workers: int | None = None
+    ) -> list[tuple[str, str]]:
         """Decrypt passwords in parallel with proper error handling and performance tracking."""
         if not self.ensure_authentication():
             console.print("[red]Authentication failed[/red]")
@@ -229,7 +229,7 @@ println(passwd)
         if max_workers is None:
             max_workers = min(10, len(credentials))
 
-        decrypted_credentials: List[Tuple[str, str]] = []
+        decrypted_credentials: list[tuple[str, str]] = []
 
         console.print(
             f"[bold]Decrypting {len(credentials)} passwords in parallel ({max_workers} workers)...[/bold]"
@@ -273,8 +273,8 @@ println(passwd)
         return decrypted_credentials
 
     def batch_decrypt_passwords_optimized(
-        self, credentials: List[Tuple[str, str]]
-    ) -> List[Tuple[str, str]]:
+        self, credentials: list[tuple[str, str]]
+    ) -> list[tuple[str, str]]:
         """Decrypt passwords using a single optimized batch script."""
         if not self.ensure_authentication():
             console.print("[red]Authentication failed[/red]")
@@ -308,7 +308,7 @@ println(passwd)
 
             # Prepare request data
             data = {"script": batch_script, "Submit": "Run"}
-            headers: Dict[str, str] = {}
+            headers: dict[str, str] = {}
 
             if csrf_token:
                 headers["Jenkins-Crumb"] = csrf_token
@@ -361,8 +361,8 @@ println(passwd)
             return []
 
     def batch_decrypt_passwords(
-        self, credentials: List[Tuple[str, str]], use_batch_optimization: bool = True
-    ) -> List[Tuple[str, str]]:
+        self, credentials: list[tuple[str, str]], use_batch_optimization: bool = True
+    ) -> list[tuple[str, str]]:
         """
         Main entry point for batch password decryption.
         Automatically chooses between script console automation and manual fallback.
@@ -399,8 +399,8 @@ println(passwd)
             return self._manual_batch_decrypt_fallback(credentials)
 
     def _manual_batch_decrypt_fallback(
-        self, credentials: List[Tuple[str, str]]
-    ) -> List[Tuple[str, str]]:
+        self, credentials: list[tuple[str, str]]
+    ) -> list[tuple[str, str]]:
         """Manual decryption fallback when script console access is not available."""
         console.print(
             f"[bold]Manual decryption mode for {len(credentials)} credentials[/bold]"
@@ -425,7 +425,7 @@ println(passwd)
 
         return decrypted_credentials
 
-    def _manual_decrypt_fallback(self, encrypted_password: str) -> Optional[str]:
+    def _manual_decrypt_fallback(self, encrypted_password: str) -> str | None:
         """Fallback to manual password decryption via script console."""
         console.print("\n[yellow]Manual decryption required:[/yellow]")
         console.print(f"1. Open: [cyan]{self.script_console_url}[/cyan]")
@@ -450,7 +450,7 @@ println(passwd)
 
         return password
 
-    def _select_processing_method(self, credentials: List[Tuple[str, str]]) -> str:
+    def _select_processing_method(self, credentials: list[tuple[str, str]]) -> str:
         """Select optimal processing method based on credential count."""
         credential_count = len(credentials)
 
@@ -593,7 +593,7 @@ println(passwd)
             return False
 
     def save_credentials_file(
-        self, credentials: List[Tuple[str, str]], output_file: str
+        self, credentials: list[tuple[str, str]], output_file: str
     ) -> bool:
         """Save decrypted credentials to file."""
         try:
@@ -601,8 +601,9 @@ println(passwd)
                 f.write("# Decrypted Jenkins Credentials\n")
                 f.write("# Format: username=password\n\n")
 
-                for username, password in credentials:
-                    f.write(f"{username}={password}\n")
+                f.writelines(
+                    f"{username}={password}\n" for username, password in credentials
+                )
 
             console.print(
                 f"[green]✓ Saved {len(credentials)} credentials to {output_file}[/green]"
@@ -633,8 +634,8 @@ println(passwd)
             return False
 
     def batch_decrypt_passwords_intelligently(
-        self, credentials: List[Tuple[str, str]]
-    ) -> List[Tuple[str, str]]:
+        self, credentials: list[tuple[str, str]]
+    ) -> list[tuple[str, str]]:
         """Intelligently choose the best batch decryption method based on credential count."""
         if not credentials:
             return []

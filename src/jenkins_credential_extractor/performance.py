@@ -3,14 +3,13 @@
 
 """Performance benchmarking and monitoring for Jenkins automation."""
 
-import time
-import statistics
-import json
 import csv
-from dataclasses import dataclass, asdict
-from typing import Dict, List, Optional
-from pathlib import Path
+import json
+import statistics
+import time
+from dataclasses import asdict, dataclass
 from datetime import datetime
+from pathlib import Path
 
 from rich.console import Console
 from rich.table import Table
@@ -35,8 +34,8 @@ class BenchmarkResult:
     error_rate: float
     timestamp: str
     method_used: str
-    thread_count: Optional[int] = None
-    batch_size: Optional[int] = None
+    thread_count: int | None = None
+    batch_size: int | None = None
 
 
 @dataclass
@@ -45,33 +44,33 @@ class PerformanceMetrics:
 
     duration: float
     success: bool
-    error_message: Optional[str] = None
+    error_message: str | None = None
     retry_count: int = 0
-    thread_id: Optional[str] = None
+    thread_id: str | None = None
 
 
 class PerformanceBenchmark:
     """Performance benchmarking system for Jenkins automation."""
 
-    def __init__(self, results_dir: Optional[Path] = None):
+    def __init__(self, results_dir: Path | None = None):
         """Initialize benchmark system."""
         self.results_dir = (
             results_dir or Path.home() / ".jenkins_extractor" / "benchmarks"
         )
         self.results_dir.mkdir(parents=True, exist_ok=True)
-        self.current_metrics: List[PerformanceMetrics] = []
+        self.current_metrics: list[PerformanceMetrics] = []
         self.operation_name = ""
         self.start_time = 0.0
         self.method_used = ""
-        self.thread_count: Optional[int] = None
-        self.batch_size: Optional[int] = None
+        self.thread_count: int | None = None
+        self.batch_size: int | None = None
 
     def start_benchmark(
         self,
         operation: str,
         method: str,
-        thread_count: Optional[int] = None,
-        batch_size: Optional[int] = None,
+        thread_count: int | None = None,
+        batch_size: int | None = None,
     ) -> None:
         """Start a new benchmark run."""
         self.operation_name = operation
@@ -91,9 +90,9 @@ class PerformanceBenchmark:
         self,
         duration: float,
         success: bool,
-        error_message: Optional[str] = None,
+        error_message: str | None = None,
         retry_count: int = 0,
-        thread_id: Optional[str] = None,
+        thread_id: str | None = None,
     ) -> None:
         """Record metrics for a single operation."""
         metric = PerformanceMetrics(
@@ -276,7 +275,7 @@ class PerformanceBenchmark:
 
     def load_recent_results(
         self, operation: str, limit: int = 10
-    ) -> List[BenchmarkResult]:
+    ) -> list[BenchmarkResult]:
         """Load recent benchmark results for an operation."""
         results = []
         pattern = f"{operation}_*.json"
@@ -299,7 +298,7 @@ class PerformanceBenchmark:
         return results
 
     def generate_csv_report(
-        self, operation: str, output_file: Optional[Path] = None
+        self, operation: str, output_file: Path | None = None
     ) -> Path:
         """Generate CSV report of all results for an operation."""
         results = self.load_recent_results(operation, limit=100)
@@ -352,9 +351,7 @@ class PerformanceBenchmark:
 class PerformanceTracker:
     """Context manager for tracking individual operation performance."""
 
-    def __init__(
-        self, benchmark: PerformanceBenchmark, thread_id: Optional[str] = None
-    ):
+    def __init__(self, benchmark: PerformanceBenchmark, thread_id: str | None = None):
         self.benchmark = benchmark
         self.thread_id = thread_id
         self.start_time = 0.0
@@ -384,9 +381,9 @@ class PerformanceTracker:
 
 def benchmark_automation_methods(
     automation,
-    test_credentials: List[tuple],
-    methods_to_test: Optional[List[str]] = None,
-) -> Dict[str, BenchmarkResult]:
+    test_credentials: list[tuple],
+    methods_to_test: list[str] | None = None,
+) -> dict[str, BenchmarkResult]:
     """Benchmark different automation methods with the same dataset."""
     if methods_to_test is None:
         methods_to_test = ["sequential", "parallel", "optimized"]

@@ -47,7 +47,7 @@ A comprehensive automation solution for bulk extracting and decrypting credentia
 ## 📊 Performance Achievements
 
 | Dataset Size | Method | Processing Time | Throughput | Success Rate |
-|-------------|--------|----------------|------------|--------------|
+| ------------- | -------- | ---------------- | ------------ | -------------- |
 | 10 credentials | Parallel | 15 seconds | 0.67/sec | 100% |
 | 50 credentials | Parallel | 45 seconds | 1.11/sec | 98% |
 | 100 credentials | Optimized | 90 seconds | 1.11/sec | 97% |
@@ -250,7 +250,7 @@ jce parse-local credentials.xml --pattern "nexus-*"
 ### **Method Selection Guide**
 
 | Credential Count | Recommended Method | Expected Time | Throughput |
-|------------------|-------------------|---------------|------------|
+| ------------------ | ------------------- | --------------- | ------------ |
 | 1-5 | Sequential | 10-30 seconds | 2-3/sec |
 | 6-50 | Parallel | 30-120 seconds | 5-8/sec |
 | 51+ | Optimized Batch | 1-3 minutes | 10-15/sec |
@@ -339,7 +339,7 @@ export JENKINS_EXTRACTOR_CACHE_TTL=86400
 ### **Main Commands**
 
 | Command | Description | Usage |
-|---------|-------------|-------|
+| --------- | ------------- | ------- |
 | `extract` | **Primary extraction method** | `jce extract --jenkins-url URL --jenkins-ip IP` |
 | `setup-auth` | Configure authentication | `jce setup-auth --jenkins-url URL --method METHOD` |
 | `config` | Manage configuration | `jce config --show` |
@@ -351,7 +351,7 @@ export JENKINS_EXTRACTOR_CACHE_TTL=86400
 ### **Project Discovery Commands**
 
 | Command | Description | Usage |
-|---------|-------------|-------|
+| --------- | ------------- | ------- |
 | `list-projects` | List Linux Foundation projects | `jce list-projects` |
 | `list-servers` | List Tailscale Jenkins servers | `jce list-servers` |
 | `parse-local` | Parse local credentials file | `jce parse-local credentials.xml` |
@@ -406,14 +406,14 @@ jce extract --verbose
 ### **Permission Requirements**
 
 | Mode | Required Permissions | Performance | User Interaction |
-|------|---------------------|-------------|------------------|
+| ------ | --------------------- | ------------- | ------------------ |
 | **Script Console** | `Hudson/RunScripts` or `Overall/Administer` | 95% faster (2 min vs 45 min) | Fully automated |
 | **Manual Automation** | Basic API token (`Job/Read`, `Overall/Read`) | Standard speed | Manual decryption steps |
 
 ### **Error Codes**
 
 | Code | Description | Solution |
-|------|-------------|----------|
+| ------ | ------------- | ---------- |
 | AUTH_001 | Invalid API token | Regenerate token in Jenkins |
 | AUTH_002 | OAuth token expired | Run `jce auth-status --jenkins-url URL` |
 | NET_001 | Connection timeout | Check network/firewall settings |

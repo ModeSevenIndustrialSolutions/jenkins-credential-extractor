@@ -7,7 +7,7 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import keyring
@@ -33,7 +33,7 @@ API_JSON_ENDPOINT = "/api/json"
 class JenkinsAuthManager:
     """Manage Jenkins authentication with Google SSO integration."""
 
-    def __init__(self, jenkins_url: str, client_secrets_file: Optional[str] = None):
+    def __init__(self, jenkins_url: str, client_secrets_file: str | None = None):
         """Initialize authentication manager."""
         self.jenkins_url = jenkins_url
         self.client_secrets_file = client_secrets_file
@@ -94,7 +94,7 @@ class JenkinsAuthManager:
 
         return None
 
-    def _cache_session(self, session_data: Dict[str, Any]) -> None:
+    def _cache_session(self, session_data: dict[str, Any]) -> None:
         """Cache session data securely."""
         cache_file = (
             self.token_cache_dir / f"session_{urlparse(self.jenkins_url).hostname}.enc"
@@ -114,7 +114,7 @@ class JenkinsAuthManager:
         except Exception as e:
             console.print(f"[yellow]Could not cache session: {e}[/yellow]")
 
-    def _authenticate_with_google_oauth(self) -> Optional[Dict[str, Any]]:
+    def _authenticate_with_google_oauth(self) -> dict[str, Any] | None:
         """Authenticate using Google OAuth2 flow."""
         if not GOOGLE_AUTH_AVAILABLE:
             console.print(
@@ -167,7 +167,7 @@ class JenkinsAuthManager:
             console.print(f"[red]OAuth authentication failed: {e}[/red]")
             return None
 
-    def _authenticate_with_jenkins_token(self) -> Optional[Dict[str, Any]]:
+    def _authenticate_with_jenkins_token(self) -> dict[str, Any] | None:
         """Authenticate using Jenkins API token."""
         console.print("[bold]Jenkins API Token Authentication[/bold]")
         console.print("You can generate an API token from Jenkins user settings")
@@ -268,7 +268,7 @@ class JenkinsAuthManager:
 
         return False
 
-    def _authenticate_with_browser_session(self) -> Optional[Dict[str, Any]]:
+    def _authenticate_with_browser_session(self) -> dict[str, Any] | None:
         """Enhanced browser session authentication with automatic cookie detection."""
         console.print("\n[bold]Browser Session Authentication[/bold]")
 
@@ -289,7 +289,7 @@ class JenkinsAuthManager:
         )
         return self._authenticate_manual_browser()
 
-    def _extract_browser_cookies(self) -> Optional[Dict[str, str]]:
+    def _extract_browser_cookies(self) -> dict[str, str] | None:
         """Automatically extract Jenkins session cookies from popular browsers."""
         jenkins_domain = urlparse(self.jenkins_url).hostname
         if not jenkins_domain:
@@ -321,7 +321,7 @@ class JenkinsAuthManager:
 
         return None
 
-    def _extract_chrome_cookies(self, domain: str) -> Optional[Dict[str, str]]:
+    def _extract_chrome_cookies(self, domain: str) -> dict[str, str] | None:
         """Extract cookies from Chrome browser."""
         from pathlib import Path
 
@@ -343,10 +343,10 @@ class JenkinsAuthManager:
 
     def _query_chromium_database(
         self, cookie_path: Path, domain: str
-    ) -> Optional[Dict[str, str]]:
+    ) -> dict[str, str] | None:
         """Query Chromium-based browser cookie database."""
-        import sqlite3
         import shutil
+        import sqlite3
         from pathlib import Path
 
         temp_db = Path("/tmp/chromium_cookies_temp.db")
@@ -384,7 +384,7 @@ class JenkinsAuthManager:
         finally:
             temp_db.unlink(missing_ok=True)
 
-    def _extract_firefox_cookies(self, domain: str) -> Optional[Dict[str, str]]:
+    def _extract_firefox_cookies(self, domain: str) -> dict[str, str] | None:
         """Extract cookies from Firefox browser."""
         from pathlib import Path
 
@@ -405,7 +405,7 @@ class JenkinsAuthManager:
 
     def _query_firefox_database(
         self, cookie_db: Path, domain: str
-    ) -> Optional[Dict[str, str]]:
+    ) -> dict[str, str] | None:
         """Query Firefox cookie database."""
         import sqlite3
 
@@ -436,7 +436,7 @@ class JenkinsAuthManager:
             console.print(f"[dim]Firefox cookie extraction error: {e}[/dim]")
             return None
 
-    def _extract_edge_cookies(self, domain: str) -> Optional[Dict[str, str]]:
+    def _extract_edge_cookies(self, domain: str) -> dict[str, str] | None:
         """Extract cookies from Microsoft Edge browser."""
         from pathlib import Path
 
@@ -482,7 +482,7 @@ class JenkinsAuthManager:
 
         return False
 
-    def _validate_browser_cookies(self, cookies: Dict[str, str]) -> bool:
+    def _validate_browser_cookies(self, cookies: dict[str, str]) -> bool:
         """Validate extracted browser cookies by testing Jenkins API access."""
         try:
             # Create a test session with the cookies
@@ -499,7 +499,7 @@ class JenkinsAuthManager:
         except Exception:
             return False
 
-    def _authenticate_manual_browser(self) -> Optional[Dict[str, Any]]:
+    def _authenticate_manual_browser(self) -> dict[str, Any] | None:
         """Manual browser authentication with session extraction (fallback method)."""
         console.print("\n[bold]Manual Browser Authentication[/bold]")
         console.print(
@@ -561,7 +561,7 @@ class JenkinsAuthManager:
         except Exception:
             return False
 
-    def get_authenticated_session(self) -> Optional[requests.Session]:
+    def get_authenticated_session(self) -> requests.Session | None:
         """Get authenticated requests session."""
         if self.is_authenticated():
             return self.session
@@ -571,7 +571,7 @@ class JenkinsAuthManager:
 
         return None
 
-    def get_auth_method(self) -> Optional[str]:
+    def get_auth_method(self) -> str | None:
         """Get the current authentication method."""
         cached_session = self._get_cached_session()
         if cached_session:
